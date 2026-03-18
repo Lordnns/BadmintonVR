@@ -1,0 +1,2 @@
+B:\Unity Github\TP1VR\WeatherVR\WeatherVR\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\CMakeLists.txt
+B:\Unity Github\TP1VR\WeatherVR\WeatherVR\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\GameActivity\CMakeLists.txt
