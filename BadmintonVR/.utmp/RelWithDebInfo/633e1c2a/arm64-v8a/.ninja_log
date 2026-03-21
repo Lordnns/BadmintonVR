@@ -1,0 +1,10 @@
+# ninja log v5
+19	1426	7958370620051773	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	458587c59da12004
+25	1435	7958370620072316	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	d6020a19947618c3
+0	1472	7958370620570344	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	fb3e6c8ef246bbe8
+39	1486	7958370620653735	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	83aa944bf72ea397
+7	1582	7958370621528293	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	3898a64e6c12240
+32	1853	7958370624626865	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	4b9170804ccf33d4
+48	1998	7958370626048643	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	198406b70077d9ff
+13	2003	7958370626059644	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	231b619ad72fb989
+2004	2360	7958370629584979	B:/Unity Github/Badminton/BadmintonVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/633e1c2a/obj/arm64-v8a/libgame.so	2c6e9a7bd9fc00e

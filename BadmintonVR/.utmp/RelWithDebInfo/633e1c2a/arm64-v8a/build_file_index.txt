@@ -1,0 +1,2 @@
+B:\Unity Github\Badminton\BadmintonVR\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\CMakeLists.txt
+B:\Unity Github\Badminton\BadmintonVR\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\GameActivity\CMakeLists.txt

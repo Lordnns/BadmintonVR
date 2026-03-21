@@ -1,0 +1,28 @@
+{
+  "buildFiles": [
+    "B:\\Unity Github\\Badminton\\BadmintonVR\\Library\\Bee\\Android\\Prj\\IL2CPP\\Gradle\\unityLibrary\\src\\main\\cpp\\CMakeLists.txt",
+    "B:\\Unity Github\\Badminton\\BadmintonVR\\Library\\Bee\\Android\\Prj\\IL2CPP\\Gradle\\unityLibrary\\src\\main\\cpp\\GameActivity\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "B:\\Programs\\Unity\\6000.3.6f1\\Editor\\Data\\PlaybackEngines\\AndroidPlayer\\SDK\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "B:\\Unity Github\\Badminton\\BadmintonVR\\.utmp\\RelWithDebInfo\\633e1c2a\\arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "B:\\Programs\\Unity\\6000.3.6f1\\Editor\\Data\\PlaybackEngines\\AndroidPlayer\\SDK\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "B:\\Unity Github\\Badminton\\BadmintonVR\\.utmp\\RelWithDebInfo\\633e1c2a\\arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "game::@d02bb112ea9f9c2ed29f": {
+      "artifactName": "game",
+      "abi": "arm64-v8a",
+      "output": "B:\\Unity Github\\Badminton\\BadmintonVR\\Library\\Bee\\Android\\Prj\\IL2CPP\\Gradle\\unityLibrary\\build\\intermediates\\cxx\\RelWithDebInfo\\633e1c2a\\obj\\arm64-v8a\\libgame.so",
+      "runtimeFiles": []
+    }
+  }
+}
