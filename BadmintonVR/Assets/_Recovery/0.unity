@@ -9122,7 +9122,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1561376998176879651, guid: 8307a09684fc360409052fdb0edf1f99, type: 3}
       propertyPath: launchSpeed
-      value: 11
+      value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 1561376998176879651, guid: 8307a09684fc360409052fdb0edf1f99, type: 3}
       propertyPath: rotatingPart

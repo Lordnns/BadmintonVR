@@ -97,7 +97,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: f778bb145f25a7b4b8995823938b5e75, type: 3}
       propertyPath: m_Name
-      value: ShuttlecockLauncher
+      value: Launcher
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -133,6 +133,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   shuttlecockPrefab: {fileID: 4484412853563116514, guid: 116dcb81899448c48a192bcf0beda7a9, type: 3}
+  rotatingPart: {fileID: 7460626128065960978}
   spawnPoint: {fileID: 2511535118851322249}
   launchSpeed: 10
   launchInterval: 1
+  despawnTime: 10
