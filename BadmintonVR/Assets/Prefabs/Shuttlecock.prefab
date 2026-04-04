@@ -68,6 +68,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Shuttlecock
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: ba718355c89030e45b5ee7824fcf4cd4, type: 3}
+      propertyPath: m_TagString
+      value: Volant
+      objectReference: {fileID: 0}
     - target: {fileID: 3599050898593616533, guid: ba718355c89030e45b5ee7824fcf4cd4, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0
@@ -211,7 +215,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25ae034b766a6e448b437b6051f9f41f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  dragCoefficient: 0.3
+  dragCoefficient: 0.6
   liftCoefficient: 0.1
   autoRotateStrength: 8
   mass: 0.005
