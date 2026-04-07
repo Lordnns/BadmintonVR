@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using BadmintonPoseTracking;
 using UnityEngine;
 
 namespace BadmintonPoseTracking
@@ -392,6 +393,29 @@ namespace BadmintonPoseTracking
                 ? reference.feedbackHint
                 : $"Adjust: {joints}";
         }
+        
+        public void AddAndSaveSequence(ReferencePoseSequence seq)
+        {
+            _sequences.Add(seq);
+            SaveSequenceToDisk(seq);
+        }
+
+        public void SaveSequenceToDisk(ReferencePoseSequence seq)
+        {
+            string folder = Path.Combine(Application.streamingAssetsPath, "Poses", "Sequences");
+            Directory.CreateDirectory(folder);
+
+            string safeName = seq.poseName;
+            foreach (char c in Path.GetInvalidFileNameChars())
+                safeName = safeName.Replace(c, '_');
+
+            string path    = Path.Combine(folder, safeName + ".json");
+            var    wrapper = new SequenceWrapper { sequence = seq };
+            File.WriteAllText(path, JsonUtility.ToJson(wrapper, prettyPrint: true));
+
+            Debug.Log($"[PoseDatabank] Saved '{seq.poseName}' → {path}");
+        }
+
 
         // ── Utility ───────────────────────────────────────────────────────
 
@@ -451,4 +475,10 @@ namespace BadmintonPoseTracking
                 ? Directory.GetFiles(SessionFolder, "*.json")
                 : Array.Empty<string>();
     }
+}
+
+[Serializable]
+internal class SequenceWrapper
+{
+    public ReferencePoseSequence sequence;
 }
