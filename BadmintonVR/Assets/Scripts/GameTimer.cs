@@ -1,12 +1,17 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.Events;
+
 
 public class GameTimer : MonoBehaviour
 {
     public float timeLeft = 60f; // Starts with 60 seconds
     public TMP_Text timerText;
     private bool isTimerRunning = true;
-
+    
+    
+    public UnityEvent OnTimeOut;
+    
     void Update()
     {
         if (isTimerRunning && timeLeft > 0)
@@ -19,7 +24,7 @@ public class GameTimer : MonoBehaviour
             timeLeft = 0;
             isTimerRunning = false;
             timerText.text = "Time: 0";
-            // Game over logic
+            OnTimeOut?.Invoke();
         }
     }
 

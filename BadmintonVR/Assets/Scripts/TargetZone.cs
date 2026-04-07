@@ -18,6 +18,7 @@ public class TargetZone : MonoBehaviour
     
     private string colorPropertyName = "_ZoneColor";
     private Renderer meshRenderer;
+    private bool active = true;
     
     void OnValidate()
     {
@@ -49,13 +50,19 @@ public class TargetZone : MonoBehaviour
     
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Volant"))
+        if (active)
         {
-            if (meshRenderer != null)
+            if (other.CompareTag("Volant"))
             {
-                meshRenderer.material.SetColor(colorPropertyName, successColor);
+                active = false;
+                if (meshRenderer != null)
+                {
+                    meshRenderer.material.SetColor(colorPropertyName, successColor);
+                }
+                //Destroy(this);
+                //Destroy(other.gameObject);
+                OnTargetReached?.Invoke();
             }
-            OnTargetReached?.Invoke();
         }
     }
 }
