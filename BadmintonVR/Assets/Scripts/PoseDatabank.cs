@@ -1,11 +1,11 @@
 // ============================================================
 //  PoseDatabank.cs
 //
-//  Stores / loads reference poses using Unity's built-in
-//  JsonUtility — zero external package dependencies.
+//  Stores / loads reference poses AND full motion sequences.
+//  Both are saved to the same JSON file under StreamingAssets.
 //
-//  Limitation: JsonUtility can't serialise a top-level List<T>
-//  directly, so we wrap it in a tiny container class.
+//  Single-frame poses (ReferencePose) are kept for backward
+//  compatibility.  New captures save as ReferencePoseSequence.
 // ============================================================
 
 using System;
@@ -16,12 +16,13 @@ using UnityEngine;
 namespace BadmintonPoseTracking
 {
     // ------------------------------------------------------------------ //
-    //  JsonUtility wrapper — lets us serialise List<ReferencePose>
+    //  JSON wrapper — holds both legacy single poses and new sequences
     // ------------------------------------------------------------------ //
     [Serializable]
     internal class ReferencePoseBank
     {
-        public List<ReferencePose> poses = new List<ReferencePose>();
+        public List<ReferencePose>         poses     = new List<ReferencePose>();
+        public List<ReferencePoseSequence> sequences = new List<ReferencePoseSequence>();
     }
 
     [Serializable]
@@ -52,8 +53,11 @@ namespace BadmintonPoseTracking
 
         // ── Public state ──────────────────────────────────────────────────
 
-        public IReadOnlyList<ReferencePose> Poses => _poses;
-        private readonly List<ReferencePose> _poses = new List<ReferencePose>();
+        public IReadOnlyList<ReferencePose>         Poses     => _poses;
+        public IReadOnlyList<ReferencePoseSequence> Sequences => _sequences;
+
+        private readonly List<ReferencePose>         _poses     = new List<ReferencePose>();
+        private readonly List<ReferencePoseSequence> _sequences = new List<ReferencePoseSequence>();
 
         // ── Default joints for badminton ──────────────────────────────────
 
@@ -107,14 +111,20 @@ namespace BadmintonPoseTracking
 
             try
             {
-                string           json = File.ReadAllText(path);
+                string        json = File.ReadAllText(path);
                 ReferencePoseBank bank = JsonUtility.FromJson<ReferencePoseBank>(json);
 
                 _poses.Clear();
+                _sequences.Clear();
+
                 if (bank?.poses != null)
                     _poses.AddRange(bank.poses);
 
-                Debug.Log($"[PoseDatabank] Loaded {_poses.Count} reference pose(s).");
+                if (bank?.sequences != null)
+                    _sequences.AddRange(bank.sequences);
+
+                Debug.Log($"[PoseDatabank] Loaded {_poses.Count} pose(s) " +
+                          $"and {_sequences.Count} sequence(s).");
             }
             catch (Exception ex)
             {
@@ -126,33 +136,177 @@ namespace BadmintonPoseTracking
         {
             string path = DatabankPath();
 
-            // StreamingAssets doesn't exist at first run on some platforms — create it
             string dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 
-            var bank = new ReferencePoseBank { poses = new List<ReferencePose>(_poses) };
-            string json = JsonUtility.ToJson(bank, prettyPrint: true);
+            var bank = new ReferencePoseBank
+            {
+                poses     = new List<ReferencePose>(_poses),
+                sequences = new List<ReferencePoseSequence>(_sequences)
+            };
+
+            string json = JsonUtility.ToJson(bank, prettyPrint: false);
             File.WriteAllText(path, json);
 
-            Debug.Log($"[PoseDatabank] Saved {_poses.Count} pose(s) → {path}");
+            Debug.Log($"[PoseDatabank] Saved {_poses.Count} pose(s) and " +
+                      $"{_sequences.Count} sequence(s) → {path}");
         }
+
+        // ── Single-frame pose API (legacy) ────────────────────────────────
 
         public void AddReference(ReferencePose pose)
         {
             _poses.Add(pose);
-            Debug.Log($"[PoseDatabank] Added '{pose.poseName}'  (total {_poses.Count})");
+            Debug.Log($"[PoseDatabank] Added pose '{pose.poseName}'  (total {_poses.Count})");
         }
 
         public void RemoveReference(string poseName)
         {
             int n = _poses.RemoveAll(p => p.poseName == poseName);
-            Debug.Log($"[PoseDatabank] Removed {n} entry/entries named '{poseName}'.");
+            Debug.Log($"[PoseDatabank] Removed {n} pose(s) named '{poseName}'.");
         }
 
-        // ── Matching ──────────────────────────────────────────────────────
+        // ── Sequence API ──────────────────────────────────────────────────
 
-        /// <summary>Returns the best-matching reference, or null if bank is empty.</summary>
+        public void AddSequence(ReferencePoseSequence seq)
+        {
+            _sequences.Add(seq);
+            Debug.Log($"[PoseDatabank] Added sequence '{seq.poseName}' " +
+                      $"({seq.FrameCount} frames, {seq.DurationSeconds:F1}s)");
+        }
+
+        public void RemoveSequence(string poseName)
+        {
+            int n = _sequences.RemoveAll(s => s.poseName == poseName);
+            Debug.Log($"[PoseDatabank] Removed {n} sequence(s) named '{poseName}'.");
+        }
+
+        // ── Sequence matching ─────────────────────────────────────────────
+
+        /// <summary>
+        /// Compares a live window of frames against every saved sequence
+        /// and returns the best match, or null if no sequences exist.
+        ///
+        /// The live window is resampled to the reference frame count before
+        /// comparison, so a fast or slow swing still matches correctly.
+        /// </summary>
+        public PoseMatchResult FindBestSequenceMatch(List<PoseFrame> liveFrames)
+        {
+            if (_sequences.Count == 0) return null;
+            if (liveFrames == null || liveFrames.Count == 0) return null;
+
+            PoseMatchResult best = null;
+            foreach (var seq in _sequences)
+            {
+                var r = CompareSequence(liveFrames, seq);
+                if (best == null || r.similarityScore > best.similarityScore)
+                    best = r;
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Returns all sequence results sorted best → worst.
+        /// </summary>
+        public List<PoseMatchResult> ScoreAllSequences(List<PoseFrame> liveFrames)
+        {
+            var results = new List<PoseMatchResult>(_sequences.Count);
+            foreach (var seq in _sequences)
+                results.Add(CompareSequence(liveFrames, seq));
+            results.Sort((a, b) => b.similarityScore.CompareTo(a.similarityScore));
+            return results;
+        }
+
+        private PoseMatchResult CompareSequence(List<PoseFrame> live,
+                                                 ReferencePoseSequence reference)
+        {
+            var result = new PoseMatchResult { referenceName = reference.poseName };
+
+            if (reference.frames.Count == 0)
+            {
+                result.similarityScore = 0f;
+                result.feedbackMessage = "Empty reference sequence.";
+                return result;
+            }
+
+            // Resample live frames to match the reference frame count.
+            // This handles timing differences — a fast smash and a slow smash
+            // both get stretched/compressed to the same length before comparison.
+            List<PoseFrame> resampled = ResampleFrames(live, reference.frames.Count);
+
+            float totalScore = 0f;
+            var   allDeviating = new List<string>();
+
+            for (int i = 0; i < reference.frames.Count; i++)
+            {
+                // Re-use the per-frame comparison logic via a temporary ReferencePose
+                var tempRef = new ReferencePose
+                {
+                    poseName       = reference.poseName,
+                    keyFrame       = reference.frames[i],
+                    matchThreshold = reference.matchThreshold,
+                    feedbackHint   = reference.feedbackHint
+                };
+
+                var frameResult = Compare(resampled[i], tempRef);
+                totalScore += frameResult.similarityScore;
+
+                // Accumulate deviating joints across frames (deduplicated)
+                foreach (var j in frameResult.deviatingJoints)
+                    if (!allDeviating.Contains(j))
+                        allDeviating.Add(j);
+            }
+
+            result.similarityScore  = totalScore / reference.frames.Count;
+            result.isMatch          = result.similarityScore >= reference.matchThreshold;
+            result.deviatingJoints  = allDeviating;
+            result.feedbackMessage  = BuildSequenceFeedback(result, reference);
+            return result;
+        }
+
+        /// <summary>
+        /// Resamples a frame list to exactly targetCount frames using nearest-
+        /// neighbour selection.  No interpolation — keeps real captured data.
+        /// </summary>
+        private static List<PoseFrame> ResampleFrames(List<PoseFrame> source, int targetCount)
+        {
+            var result = new List<PoseFrame>(targetCount);
+
+            if (source.Count == 0) return result;
+            if (targetCount  == 1) { result.Add(source[source.Count / 2]); return result; }
+
+            for (int i = 0; i < targetCount; i++)
+            {
+                float t   = i / (float)(targetCount - 1);
+                int   idx = Mathf.RoundToInt(t * (source.Count - 1));
+                result.Add(source[Mathf.Clamp(idx, 0, source.Count - 1)]);
+            }
+            return result;
+        }
+
+        private static string BuildSequenceFeedback(PoseMatchResult r,
+                                                      ReferencePoseSequence reference)
+        {
+            if (r.isMatch)
+                return $"Great {reference.poseName}! ({r.similarityScore:P0})";
+
+            if (!string.IsNullOrEmpty(reference.feedbackHint))
+                return reference.feedbackHint;
+
+            if (r.deviatingJoints.Count > 0)
+            {
+                int    count  = Mathf.Min(2, r.deviatingJoints.Count);
+                string joints = string.Join(" | ", r.deviatingJoints.GetRange(0, count));
+                return $"Adjust: {joints}";
+            }
+
+            return "Keep working on your form.";
+        }
+
+        // ── Single-frame matching (legacy, kept for compatibility) ─────────
+
+        /// <summary>Returns the best-matching single-frame reference, or null.</summary>
         public PoseMatchResult FindBestMatch(PoseFrame live)
         {
             if (_poses.Count == 0) return null;
@@ -167,7 +321,7 @@ namespace BadmintonPoseTracking
             return best;
         }
 
-        /// <summary>Returns all results sorted best → worst.</summary>
+        /// <summary>Returns all single-frame results sorted best → worst.</summary>
         public List<PoseMatchResult> ScoreAll(PoseFrame live)
         {
             var results = new List<PoseMatchResult>(_poses.Count);
@@ -176,9 +330,9 @@ namespace BadmintonPoseTracking
             return results;
         }
 
-        // ── Core comparison ───────────────────────────────────────────────
+        // ── Core per-frame comparison ─────────────────────────────────────
         //
-        //  1.  All joint rotations are expressed RELATIVE to the Hips joint
+        //  1.  All joint rotations expressed RELATIVE to Hips
         //      (player-facing-direction independent).
         //  2.  Angular distance per joint → cosine falloff score (0–1).
         //  3.  Weighted average across all scoring joints.
@@ -261,7 +415,6 @@ namespace BadmintonPoseTracking
 
     // ------------------------------------------------------------------ //
     //  PoseSessionSerializer  —  save / load full recording sessions
-    //  Uses JsonUtility with a wrapper, same pattern as the databank.
     // ------------------------------------------------------------------ //
     public static class PoseSessionSerializer
     {
@@ -273,8 +426,6 @@ namespace BadmintonPoseTracking
             Directory.CreateDirectory(SessionFolder);
             string path = Path.Combine(SessionFolder, session.sessionId + ".json");
 
-            // JsonUtility can't serialise a class directly at the root if it
-            // contains List<> with complex elements — wrap it just in case.
             var wrapper = new RecordingWrapper { recording = session };
             File.WriteAllText(path, JsonUtility.ToJson(wrapper, prettyPrint: true));
 

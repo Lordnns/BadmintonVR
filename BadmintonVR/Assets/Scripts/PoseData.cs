@@ -163,7 +163,8 @@ namespace BadmintonPoseTracking
     }
 
     // ------------------------------------------------------------------ //
-    //  ReferencePose  —  one ideal badminton pose stored in the databank
+    //  ReferencePose  —  one ideal badminton pose (single frame)
+    //  Kept for backward compatibility with existing saved data.
     // ------------------------------------------------------------------ //
     [Serializable]
     public class ReferencePose
@@ -173,6 +174,27 @@ namespace BadmintonPoseTracking
         public PoseFrame keyFrame;        // the ideal snapshot
         public float     matchThreshold;  // 0..1 — minimum score to count as a match
         public string    feedbackHint;    // shown to the player when near-miss
+    }
+
+    // ------------------------------------------------------------------ //
+    //  ReferencePoseSequence  —  a full movement recorded across N frames.
+    //  This is what gets saved when you record a swing, serve, etc.
+    //  The matcher resamples the live window to the reference frame count
+    //  before comparing, so timing differences are handled automatically.
+    // ------------------------------------------------------------------ //
+    [Serializable]
+    public class ReferencePoseSequence
+    {
+        public string          poseName;
+        public string          category;
+        public List<PoseFrame> frames         = new List<PoseFrame>();
+        public float           captureRateFps;
+        public float           matchThreshold;
+        public string          feedbackHint;
+
+        public int   FrameCount      => frames.Count;
+        public float DurationSeconds => captureRateFps > 0
+            ? frames.Count / captureRateFps : 0f;
     }
 
     // ------------------------------------------------------------------ //
