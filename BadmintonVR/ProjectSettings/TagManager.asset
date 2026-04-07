@@ -6,6 +6,8 @@ TagManager:
   tags:
   - Snowable
   - Volant
+  - ShuttlecockHead
+  - RacketHead
   layers:
   - Default
   - TransparentFX
