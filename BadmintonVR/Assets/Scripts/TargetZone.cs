@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -67,13 +68,14 @@ public class TargetZone : MonoBehaviour
                 Destroy(other.gameObject);
                 OnTargetReached?.Invoke();
 
-                //StartCoroutine();
-
-
-
-
+                StartCoroutine(DestroyItself());
             }
         }
     }
-    
+
+    private IEnumerator DestroyItself()
+    {
+        yield return new WaitForSeconds(0.75f);
+        Destroy(this.gameObject);
+    }
 }
