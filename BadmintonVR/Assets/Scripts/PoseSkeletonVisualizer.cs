@@ -1,11 +1,11 @@
 // ============================================================
 //  PoseSkeletonVisualizer.cs
 //
-//  Reads directly from OVRSkeleton every LateUpdate.
-//  Uses an anchorTransform as a positional reference —
-//  all joint positions are offset by anchor.position so
-//  the skeleton stays locked to the player's origin.
-//
+//  Changes from original:
+//  • BodyPoseRecorder → PoseRecorder  (new system)
+//  • Event: onFrameCaptured → OnFrameCaptured
+//  • Connections: FullBody_* → Body_* BoneIds (Body mode)
+//  • AllowedBones: legs removed (not tracked in Body mode)
 // ============================================================
 
 using System.Collections.Generic;
@@ -22,11 +22,10 @@ namespace BadmintonPoseTracking
         [Tooltip("OVRSkeleton on your MetaBodyTracking GameObject.")]
         public OVRSkeleton bodySkeleton;
 
-        [Tooltip("BodyPoseRecorder — used for controller positions.")]
-        public BodyPoseRecorder bodyPoseRecorder;
+        [Tooltip("PoseRecorder — used for controller positions.")]
+        public PoseRecorder recorder;
 
-        [Tooltip("Transform to anchor the skeleton to (drag in your XROrigin). " +
-                 "All joint positions are offset by this transform's position.")]
+        [Tooltip("Transform to anchor the skeleton to (drag in your XROrigin).")]
         public Transform anchorTransform;
 
         [Header("Joint Spheres")]
@@ -46,41 +45,56 @@ namespace BadmintonPoseTracking
         [Header("Visibility")]
         public bool hideUntrackedJoints = false;
         public bool showLabels          = true;
-
-        [Tooltip("True = render all OVR bones (including fingers). " +
-                 "False = only bones the recorder tracks.")]
         public bool showFullSkeleton    = false;
 
-        // ── Bone connections ───────────────────────────────────────────────
+        // ── Bone connections (Body mode — Body_* IDs, no legs) ─────────────
 
         private static readonly (OVRSkeleton.BoneId A, OVRSkeleton.BoneId B)[] Connections =
         {
-            (OVRSkeleton.BoneId.FullBody_Hips,           OVRSkeleton.BoneId.FullBody_SpineLower),
-            (OVRSkeleton.BoneId.FullBody_SpineLower,     OVRSkeleton.BoneId.FullBody_SpineMiddle),
-            (OVRSkeleton.BoneId.FullBody_SpineMiddle,    OVRSkeleton.BoneId.FullBody_SpineUpper),
-            (OVRSkeleton.BoneId.FullBody_SpineUpper,     OVRSkeleton.BoneId.FullBody_Chest),
-            (OVRSkeleton.BoneId.FullBody_Chest,          OVRSkeleton.BoneId.FullBody_Neck),
-            (OVRSkeleton.BoneId.FullBody_Neck,           OVRSkeleton.BoneId.FullBody_Head),
+            // Spine
+            (OVRSkeleton.BoneId.Body_Hips,           OVRSkeleton.BoneId.Body_SpineLower),
+            (OVRSkeleton.BoneId.Body_SpineLower,      OVRSkeleton.BoneId.Body_SpineMiddle),
+            (OVRSkeleton.BoneId.Body_SpineMiddle,     OVRSkeleton.BoneId.Body_SpineUpper),
+            (OVRSkeleton.BoneId.Body_SpineUpper,      OVRSkeleton.BoneId.Body_Chest),
+            (OVRSkeleton.BoneId.Body_Chest,           OVRSkeleton.BoneId.Body_Neck),
+            (OVRSkeleton.BoneId.Body_Neck,            OVRSkeleton.BoneId.Body_Head),
 
-            (OVRSkeleton.BoneId.FullBody_Chest,          OVRSkeleton.BoneId.FullBody_LeftShoulder),
-            (OVRSkeleton.BoneId.FullBody_LeftShoulder,   OVRSkeleton.BoneId.FullBody_LeftArmUpper),
-            (OVRSkeleton.BoneId.FullBody_LeftArmUpper,   OVRSkeleton.BoneId.FullBody_LeftArmLower),
-            (OVRSkeleton.BoneId.FullBody_LeftArmLower,   OVRSkeleton.BoneId.FullBody_LeftHandWrist),
+            // Left arm
+            (OVRSkeleton.BoneId.Body_Chest,           OVRSkeleton.BoneId.Body_LeftShoulder),
+            (OVRSkeleton.BoneId.Body_LeftShoulder,    OVRSkeleton.BoneId.Body_LeftArmUpper),
+            (OVRSkeleton.BoneId.Body_LeftArmUpper,    OVRSkeleton.BoneId.Body_LeftArmLower),
+            (OVRSkeleton.BoneId.Body_LeftArmLower,    OVRSkeleton.BoneId.Body_LeftHandWrist),
 
-            (OVRSkeleton.BoneId.FullBody_Chest,          OVRSkeleton.BoneId.FullBody_RightShoulder),
-            (OVRSkeleton.BoneId.FullBody_RightShoulder,  OVRSkeleton.BoneId.FullBody_RightArmUpper),
-            (OVRSkeleton.BoneId.FullBody_RightArmUpper,  OVRSkeleton.BoneId.FullBody_RightArmLower),
-            (OVRSkeleton.BoneId.FullBody_RightArmLower,  OVRSkeleton.BoneId.FullBody_RightHandWrist),
+            // Right arm
+            (OVRSkeleton.BoneId.Body_Chest,           OVRSkeleton.BoneId.Body_RightShoulder),
+            (OVRSkeleton.BoneId.Body_RightShoulder,   OVRSkeleton.BoneId.Body_RightArmUpper),
+            (OVRSkeleton.BoneId.Body_RightArmUpper,   OVRSkeleton.BoneId.Body_RightArmLower),
+            (OVRSkeleton.BoneId.Body_RightArmLower,   OVRSkeleton.BoneId.Body_RightHandWrist),
+        };
 
-            (OVRSkeleton.BoneId.FullBody_Hips,           OVRSkeleton.BoneId.FullBody_LeftUpperLeg),
-            (OVRSkeleton.BoneId.FullBody_LeftUpperLeg,   OVRSkeleton.BoneId.FullBody_LeftLowerLeg),
-            (OVRSkeleton.BoneId.FullBody_LeftLowerLeg,   OVRSkeleton.BoneId.FullBody_LeftFootAnkle),
-            (OVRSkeleton.BoneId.FullBody_LeftFootAnkle,  OVRSkeleton.BoneId.FullBody_LeftFootBall),
+        // ── Allowed bones (matches PoseRecorder._boneMap exactly) ─────────
 
-            (OVRSkeleton.BoneId.FullBody_Hips,           OVRSkeleton.BoneId.FullBody_RightUpperLeg),
-            (OVRSkeleton.BoneId.FullBody_RightUpperLeg,  OVRSkeleton.BoneId.FullBody_RightLowerLeg),
-            (OVRSkeleton.BoneId.FullBody_RightLowerLeg,  OVRSkeleton.BoneId.FullBody_RightFootAnkle),
-            (OVRSkeleton.BoneId.FullBody_RightFootAnkle, OVRSkeleton.BoneId.FullBody_RightFootBall),
+        private static readonly HashSet<OVRSkeleton.BoneId> AllowedBones =
+            new HashSet<OVRSkeleton.BoneId>
+        {
+            OVRSkeleton.BoneId.Body_Hips,
+            OVRSkeleton.BoneId.Body_SpineLower,
+            OVRSkeleton.BoneId.Body_SpineMiddle,
+            OVRSkeleton.BoneId.Body_SpineUpper,
+            OVRSkeleton.BoneId.Body_Chest,
+            OVRSkeleton.BoneId.Body_Neck,
+            OVRSkeleton.BoneId.Body_Head,
+
+            OVRSkeleton.BoneId.Body_LeftShoulder,
+            OVRSkeleton.BoneId.Body_LeftArmUpper,
+            OVRSkeleton.BoneId.Body_LeftArmLower,
+            OVRSkeleton.BoneId.Body_LeftHandWrist,
+
+            OVRSkeleton.BoneId.Body_RightShoulder,
+            OVRSkeleton.BoneId.Body_RightScapula,
+            OVRSkeleton.BoneId.Body_RightArmUpper,
+            OVRSkeleton.BoneId.Body_RightArmLower,
+            OVRSkeleton.BoneId.Body_RightHandWrist,
         };
 
         // ── Private ────────────────────────────────────────────────────────
@@ -92,40 +106,6 @@ namespace BadmintonPoseTracking
         private readonly List<(OVRSkeleton.BoneId A, OVRSkeleton.BoneId B, GameObject Cap)> _capsules
             = new List<(OVRSkeleton.BoneId, OVRSkeleton.BoneId, GameObject)>();
 
-        // Only visualise bones that the recorder actually tracks — skip fingers
-        private static readonly HashSet<OVRSkeleton.BoneId> AllowedBones = new HashSet<OVRSkeleton.BoneId>
-        {
-            OVRSkeleton.BoneId.Body_Hips,
-            OVRSkeleton.BoneId.Body_SpineLower,
-            OVRSkeleton.BoneId.Body_SpineMiddle,
-            OVRSkeleton.BoneId.Body_SpineUpper,
-            OVRSkeleton.BoneId.Body_Chest,
-            OVRSkeleton.BoneId.Body_Neck,
-            OVRSkeleton.BoneId.Body_Head,
-
-            OVRSkeleton.BoneId.Body_LeftShoulder,
-            OVRSkeleton.BoneId.Body_LeftScapula,
-            OVRSkeleton.BoneId.Body_LeftArmUpper,
-            OVRSkeleton.BoneId.Body_LeftArmLower,
-            OVRSkeleton.BoneId.Body_LeftHandWrist,
-
-            OVRSkeleton.BoneId.Body_RightShoulder,
-            OVRSkeleton.BoneId.Body_RightScapula,
-            OVRSkeleton.BoneId.Body_RightArmUpper,
-            OVRSkeleton.BoneId.Body_RightArmLower,
-            OVRSkeleton.BoneId.Body_RightHandWrist,
-
-            OVRSkeleton.BoneId.FullBody_LeftUpperLeg,
-            OVRSkeleton.BoneId.FullBody_LeftLowerLeg,
-            OVRSkeleton.BoneId.FullBody_LeftFootAnkle,
-            OVRSkeleton.BoneId.FullBody_LeftFootBall,
-
-            OVRSkeleton.BoneId.FullBody_RightUpperLeg,
-            OVRSkeleton.BoneId.FullBody_RightLowerLeg,
-            OVRSkeleton.BoneId.FullBody_RightFootAnkle,
-            OVRSkeleton.BoneId.FullBody_RightFootBall,
-        };
-
         private GameObject _leftControllerSphere;
         private GameObject _rightControllerSphere;
 
@@ -136,16 +116,14 @@ namespace BadmintonPoseTracking
 
         private bool      _built;
         private PoseFrame _lastFrame;
-
-        // Container GO — purely for hierarchy tidiness, NOT used for positioning
         private GameObject _container;
 
         // ── Lifecycle ──────────────────────────────────────────────────────
 
         private void Awake()
         {
-            if (bodySkeleton    == null) bodySkeleton    = FindFirstObjectByType<OVRSkeleton>();
-            if (bodyPoseRecorder== null) bodyPoseRecorder= GetComponent<BodyPoseRecorder>();
+            if (bodySkeleton == null) bodySkeleton = FindFirstObjectByType<OVRSkeleton>();
+            if (recorder     == null) recorder     = GetComponent<PoseRecorder>();
 
             if (anchorTransform == null)
             {
@@ -154,23 +132,20 @@ namespace BadmintonPoseTracking
             }
 
             CreateMaterials();
-
             _container = new GameObject("SkeletonVisualizer");
-            // NOT parented to anything — positions are set in world space each frame
-
             CreateControllerSpheres();
         }
 
         private void OnEnable()
         {
-            if (bodyPoseRecorder != null)
-                bodyPoseRecorder.onFrameCaptured += OnFrameCaptured;
+            if (recorder != null)
+                recorder.OnFrameCaptured += OnFrameCaptured;
         }
 
         private void OnDisable()
         {
-            if (bodyPoseRecorder != null)
-                bodyPoseRecorder.onFrameCaptured -= OnFrameCaptured;
+            if (recorder != null)
+                recorder.OnFrameCaptured -= OnFrameCaptured;
         }
 
         private void OnDestroy()
@@ -184,7 +159,7 @@ namespace BadmintonPoseTracking
 
         private void OnFrameCaptured(PoseFrame frame) => _lastFrame = frame;
 
-        // ── LateUpdate — main loop ─────────────────────────────────────────
+        // ── LateUpdate ─────────────────────────────────────────────────────
 
         private void LateUpdate()
         {
@@ -227,10 +202,6 @@ namespace BadmintonPoseTracking
                 }
 
                 go.SetActive(true);
-                // OVRSkeleton bone positions are in OVR tracking space
-                // (relative to the guardian/floor origin).
-                // anchorTransform.TransformPoint converts tracking space → world space
-                // exactly the same way XROrigin does for controllers.
                 go.transform.position = anchorTransform != null
                     ? anchorTransform.TransformPoint(bone.Transform.position)
                     : bone.Transform.position;
@@ -280,20 +251,18 @@ namespace BadmintonPoseTracking
             if (_leftControllerSphere != null)
             {
                 _leftControllerSphere.SetActive(lp.isTracked);
-                if (lp.isTracked)
-                    _leftControllerSphere.transform.position = lp.position;
+                if (lp.isTracked) _leftControllerSphere.transform.position = lp.position;
             }
 
             var rp = _lastFrame.GetJoint(TrackedJoint.RightController);
             if (_rightControllerSphere != null)
             {
                 _rightControllerSphere.SetActive(rp.isTracked);
-                if (rp.isTracked)
-                    _rightControllerSphere.transform.position = rp.position;
+                if (rp.isTracked) _rightControllerSphere.transform.position = rp.position;
             }
         }
 
-        // ── Build / create helpers ─────────────────────────────────────────
+        // ── Build helpers ──────────────────────────────────────────────────
 
         private void BuildBoneCache()
         {
@@ -422,7 +391,7 @@ namespace BadmintonPoseTracking
                     : kvp.Value.Transform.position;
                 UnityEditor.Handles.Label(
                     pos + Vector3.up * 0.05f,
-                    kvp.Key.ToString().Replace("FullBody_", ""), style);
+                    kvp.Key.ToString().Replace("Body_", ""), style);
             }
         }
 #endif

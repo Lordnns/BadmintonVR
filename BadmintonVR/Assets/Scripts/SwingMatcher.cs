@@ -1,0 +1,437 @@
+﻿// ============================================================
+//  SwingMatcher.cs
+//
+//  Compares two PoseCaptures using Dynamic Time Warping (DTW)
+//  with a Sakoe-Chiba band constraint.
+//
+//  WHY DTW?
+//  ────────────────────────────────────────────────────────────
+//  A reference smash was recorded at normal pace.  The player
+//  might swing 20% faster or slower.  Naive frame-by-frame
+//  comparison punishes good technique just because the timing
+//  differs.  DTW finds the OPTIMAL alignment between the two
+//  sequences, stretching/compressing time on each side to
+//  minimise the total cost.  The result is a path through the
+//  n×m cost matrix; the path cost, normalised by its length,
+//  gives a distance that is timing-invariant.
+//
+//  BAND CONSTRAINT (Sakoe-Chiba)
+//  ────────────────────────────────────────────────────────────
+//  Unconstrained DTW allows arbitrarily degenerate paths
+//  (e.g. one frame mapped to all 90 reference frames).  The
+//  band limits warping to ±BandFraction of max(n,m), keeping
+//  timing biologically plausible and cutting computation from
+//  O(n×m) to O(n × band_width).
+//
+//  SCORING
+//  ────────────────────────────────────────────────────────────
+//  Raw DTW cost = sum of frame-pair distances along the path.
+//  Normalised cost = raw / path_length.
+//  Score [0,100] = 100 × exp(−normalised_cost / Sensitivity)
+//  Sensitivity tunes how steeply the score drops with error.
+//  Default ~30° angular sensitivity feels natural for badminton.
+//
+//  PERFORMANCE
+//  ────────────────────────────────────────────────────────────
+//  • Pre-allocated flat float[] matrix (no per-call alloc).
+//  • Parallel float[] and int[] for joint weights/ids.
+//    (avoids struct field reads in the innermost loop)
+//  • float multiply instead of Mathf.Cos in score conversion.
+//  • All math uses structs / value types — zero boxing.
+//
+//  MAX DIMENSIONS
+//  ────────────────────────────────────────────────────────────
+//  MaxFrames = 180 supports captures up to 6 s at 30 fps.
+//  Increase if you record longer swings.
+//  Memory: 180×180×4 bytes = 126 KB — completely negligible.
+// ============================================================
+
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace BadmintonPoseTracking
+{
+    // ── Result ────────────────────────────────────────────────────────────
+
+    public sealed class SwingScore
+    {
+        /// <summary>0 = no match, 100 = perfect.</summary>
+        public float Score;
+
+        /// <summary>Normalised DTW cost before the exp conversion (debug use).</summary>
+        public float NormalisedCost;
+
+        /// <summary>Joints that deviated most on average across the matched path.</summary>
+        public string[] WeakJoints;
+
+        /// <summary>Convenience: Score >= threshold → passing grade.</summary>
+        public bool Passes(float threshold = 60f) => Score >= threshold;
+
+        public override string ToString() =>
+            $"Score={Score:F1}  NormCost={NormalisedCost:F3}  Weak=[{string.Join(", ", WeakJoints)}]";
+    }
+
+    // ── Matcher ───────────────────────────────────────────────────────────
+
+    public sealed class SwingMatcher
+    {
+        // ── Tuning knobs (set before comparing) ───────────────────────────
+
+        /// <summary>
+        /// Fraction of max(n,m) used as the Sakoe-Chiba band.
+        /// 0.15 = tight (must match timing closely).
+        /// 0.30 = loose (allows slow/fast swings).
+        /// </summary>
+        public float BandFraction = 0.20f;
+
+        /// <summary>
+        /// Controls how aggressively the score drops with angular error.
+        /// Units: degrees.  A normalised cost equal to this value → score ~37.
+        /// Lower = stricter grading.  Good range: 20–45.
+        /// </summary>
+        public float Sensitivity = 30f;
+
+        // ── Pre-allocated DTW matrix ──────────────────────────────────────
+
+        private const int MaxFrames = 180;
+        private readonly float[] _dtw = new float[MaxFrames * MaxFrames];
+
+        // ── Scoring joint arrays (parallel float[] + int[]) ───────────────
+        //
+        //    We avoid reading .weight and .joint from ScoringJointEntry
+        //    structs inside the inner loop — that's two field reads per
+        //    joint per frame pair.  Parallel arrays give us tight cache
+        //    access and branch-free indexing.
+
+        private float[]        _weights;       // indexed 0..numJoints-1
+        private int[]          _jointIds;      // (int)TrackedJoint
+        private float          _totalWeight;
+        private int            _numJoints;
+
+        // Per-joint cumulative-deviation accumulators (weak-joint detection)
+        private float[]        _jointDeviation;
+        private int[]          _jointHits;
+
+        // ── Constructor ───────────────────────────────────────────────────
+
+        public SwingMatcher(ScoringJointEntry[] scoringJoints)
+        {
+            SetScoringJoints(scoringJoints);
+        }
+
+        public SwingMatcher() : this(DefaultJoints()) { }
+
+        public void SetScoringJoints(ScoringJointEntry[] joints)
+        {
+            _numJoints = joints.Length;
+            _weights       = new float[_numJoints];
+            _jointIds      = new int[_numJoints];
+            _jointDeviation = new float[_numJoints];
+            _jointHits     = new int[_numJoints];
+            _totalWeight   = 0f;
+
+            for (int i = 0; i < _numJoints; i++)
+            {
+                _weights[i]  = joints[i].weight;
+                _jointIds[i] = (int)joints[i].joint;
+                _totalWeight += joints[i].weight;
+            }
+        }
+
+        // ── Main entry point ──────────────────────────────────────────────
+
+        /// <summary>
+        /// Compare a player capture against a reference swing.
+        /// Returns a SwingScore — the player capture is not modified.
+        /// </summary>
+        public SwingScore Compare(PoseCapture player, PoseCapture reference)
+        {
+            return CompareFrameArrays(player.Frames, player.FrameCount,
+                                      reference.Frames, reference.FrameCount);
+        }
+
+        /// <summary>Overload accepting a ReferencePoseSequence directly.</summary>
+        public SwingScore Compare(PoseCapture player, ReferencePoseSequence reference)
+        {
+            var refFrames = reference.frames;
+            int refCount  = refFrames.Count;
+
+            // Materialise into a temp array so inner loop accesses are O(1)
+            // Only allocates once per comparison — tiny compared to DTW work.
+            var refArr = new PoseFrame[refCount];
+            for (int i = 0; i < refCount; i++) refArr[i] = refFrames[i];
+
+            return CompareFrameArrays(player.Frames, player.FrameCount,
+                                      refArr, refCount);
+        }
+
+        // ── Core DTW ──────────────────────────────────────────────────────
+
+        private SwingScore CompareFrameArrays(PoseFrame[] pFrames, int n,
+                                               PoseFrame[] rFrames, int m)
+        {
+            if (n == 0 || m == 0)
+                return new SwingScore { Score = 0f, NormalisedCost = float.MaxValue,
+                                        WeakJoints = Array.Empty<string>() };
+
+            n = Mathf.Min(n, MaxFrames);
+            m = Mathf.Min(m, MaxFrames);
+
+            int band = Mathf.Max(2, Mathf.RoundToInt(Mathf.Max(n, m) * BandFraction));
+
+            // Reset per-joint deviation accumulators
+            for (int i = 0; i < _numJoints; i++)
+            {
+                _jointDeviation[i] = 0f;
+                _jointHits[i]      = 0;
+            }
+
+            // ── Fill DTW matrix ───────────────────────────────────────────
+            //    Using flat index: [i * MaxFrames + j]
+            //    Cells outside the band stay at float.MaxValue.
+
+            const float INF = float.MaxValue * 0.5f;   // avoid overflow on addition
+
+            // Init first cell
+            _dtw[0] = FrameDist(pFrames[0], rFrames[0]);
+
+            // First column
+            for (int i = 1; i < n; i++)
+            {
+                int j = 0;
+                if (Mathf.Abs(i - j) <= band)
+                {
+                    float prev = _dtw[(i - 1) * MaxFrames + j];
+                    _dtw[i * MaxFrames + j] = prev < INF
+                        ? FrameDist(pFrames[i], rFrames[j]) + prev
+                        : INF;
+                }
+                else _dtw[i * MaxFrames + j] = INF;
+            }
+
+            // First row
+            for (int j = 1; j < m; j++)
+            {
+                int i = 0;
+                if (Mathf.Abs(i - j) <= band)
+                {
+                    float prev = _dtw[0 * MaxFrames + (j - 1)];
+                    _dtw[0 * MaxFrames + j] = prev < INF
+                        ? FrameDist(pFrames[i], rFrames[j]) + prev
+                        : INF;
+                }
+                else _dtw[0 * MaxFrames + j] = INF;
+            }
+
+            // Fill remaining cells
+            for (int i = 1; i < n; i++)
+            {
+                int jMin = Mathf.Max(1, i - band);
+                int jMax = Mathf.Min(m - 1, i + band);
+
+                for (int j = jMin; j <= jMax; j++)
+                {
+                    float cost = FrameDist(pFrames[i], rFrames[j]);
+
+                    float a = _dtw[(i - 1) * MaxFrames + j];       // insertion
+                    float b = _dtw[i       * MaxFrames + (j - 1)]; // deletion
+                    float c = _dtw[(i - 1) * MaxFrames + (j - 1)]; // diagonal (match)
+
+                    // min of three — branchless via sequential Mathf.Min
+                    float best = a < b ? a : b;
+                    if (c < best) best = c;
+
+                    _dtw[i * MaxFrames + j] = best < INF ? cost + best : INF;
+                }
+
+                // Cells outside the band this row
+                for (int j = 0;       j < jMin; j++) _dtw[i * MaxFrames + j] = INF;
+                for (int j = jMax + 1; j < m;  j++) _dtw[i * MaxFrames + j] = INF;
+            }
+
+            // ── Traceback to accumulate per-joint deviations ──────────────
+            //
+            //    We walk the optimal path backwards from (n-1, m-1).
+            //    At each cell we call FrameDistDetailed() to update
+            //    the joint deviation accumulators — then build WeakJoints.
+
+            int pi = n - 1, pj = m - 1;
+            int pathLength = 0;
+
+            while (pi > 0 || pj > 0)
+            {
+                FrameDistDetailed(pFrames[pi], rFrames[pj]);
+                pathLength++;
+
+                if (pi == 0) { pj--; continue; }
+                if (pj == 0) { pi--; continue; }
+
+                float d = _dtw[(pi - 1) * MaxFrames + (pj - 1)];
+                float ins = _dtw[(pi - 1) * MaxFrames + pj];
+                float del = _dtw[pi       * MaxFrames + (pj - 1)];
+
+                if (d <= ins && d <= del) { pi--; pj--; }
+                else if (ins <= del)      { pi--; }
+                else                      { pj--; }
+            }
+            // Include the origin cell
+            FrameDistDetailed(pFrames[0], rFrames[0]);
+            pathLength++;
+
+            // ── Compute final score ───────────────────────────────────────
+
+            float rawCost = _dtw[(n - 1) * MaxFrames + (m - 1)];
+            float normCost = rawCost / Mathf.Max(1, pathLength);
+
+            // exp(-normCost / Sensitivity) × 100
+            float score = Mathf.Exp(-normCost / Sensitivity) * 100f;
+
+            // ── Identify weak joints ──────────────────────────────────────
+
+            const int MaxWeakJoints = 3;
+            int weakCount = 0;
+            string[] weak = new string[MaxWeakJoints];
+
+            // Find the top-N joints by average deviation (simple selection sort)
+            bool[] used = new bool[_numJoints];
+            for (int w = 0; w < MaxWeakJoints; w++)
+            {
+                float maxDev = 0f;
+                int   maxIdx = -1;
+                for (int k = 0; k < _numJoints; k++)
+                {
+                    if (used[k]) continue;
+                    float avg = _jointHits[k] > 0
+                        ? _jointDeviation[k] / _jointHits[k] : 0f;
+                    if (avg > maxDev) { maxDev = avg; maxIdx = k; }
+                }
+                if (maxIdx < 0 || maxDev < 10f) break;  // < 10° average = not noteworthy
+                used[maxIdx] = true;
+                weak[weakCount++] = $"{(TrackedJoint)_jointIds[maxIdx]} ({maxDev:F0}°)";
+            }
+
+            var finalWeak = new string[weakCount];
+            Array.Copy(weak, finalWeak, weakCount);
+
+            return new SwingScore
+            {
+                Score           = score,
+                NormalisedCost  = normCost,
+                WeakJoints      = finalWeak
+            };
+        }
+
+        // ── Per-frame distance ─────────────────────────────────────────────
+        //
+        //    Both rotations are expressed relative to their own Hips
+        //    so the score is yaw/facing-independent (the player does
+        //    not need to face the same direction as the reference).
+
+        // ── Reference frame ───────────────────────────────────────────────
+        //
+        //    Body tracking mode (non-FullBody) gives us head, shoulders,
+        //    and arms — no hips or spine.  We can't use Hips as the anchor.
+        //
+        //    Instead we derive a synthetic torso frame from the two shoulders:
+        //      right   = normalize(RightShoulder.pos - LeftShoulder.pos)
+        //      forward = normalize(cross(right, Vector3.up))
+        //      up      = cross(forward, right)          ← reorthogonalised
+        //
+        //    This frame is stable across all player orientations and requires
+        //    only the two shoulder positions — always available in Body mode.
+
+        private static Quaternion ShoulderFrame(in PoseFrame f)
+        {
+            var ls = f.GetJoint(TrackedJoint.LeftShoulder);
+            var rs = f.GetJoint(TrackedJoint.RightShoulder);
+
+            if (!ls.isTracked || !rs.isTracked)
+                return Quaternion.identity;
+
+            Vector3 right = (rs.position - ls.position);
+            if (right.sqrMagnitude < 0.0001f) return Quaternion.identity;
+            right.Normalize();
+
+            Vector3 forward = Vector3.Cross(right, Vector3.up);
+            if (forward.sqrMagnitude < 0.0001f)
+            {
+                // Degenerate case: shoulders are stacked vertically — fall back
+                return Quaternion.identity;
+            }
+            forward.Normalize();
+
+            Vector3 up = Vector3.Cross(forward, right);   // guaranteed unit length
+            return Quaternion.LookRotation(forward, up);
+        }
+
+        private float FrameDist(in PoseFrame a, in PoseFrame b)
+        {
+            Quaternion aInv = Quaternion.Inverse(ShoulderFrame(a));
+            Quaternion bInv = Quaternion.Inverse(ShoulderFrame(b));
+
+            float totalCost   = 0f;
+            float totalWeight = 0f;
+            float tol2x       = 90f;   // 45° × 2 — saturate at 90°
+
+            for (int k = 0; k < _numJoints; k++)
+            {
+                var aj = a.joints[_jointIds[k]];
+                var bj = b.joints[_jointIds[k]];
+                if (!aj.isTracked || !bj.isTracked) continue;
+
+                float angle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
+                float t     = angle < tol2x ? angle / tol2x : 1f;
+                totalCost   += t * _weights[k];
+                totalWeight += _weights[k];
+            }
+
+            return totalWeight > 0f ? (totalCost / totalWeight) * 90f : 0f;
+        }
+
+        /// <summary>
+        /// Same as FrameDist but also accumulates per-joint deviations
+        /// into _jointDeviation / _jointHits.  Called only during traceback.
+        /// </summary>
+        private void FrameDistDetailed(in PoseFrame a, in PoseFrame b)
+        {
+            Quaternion aInv = Quaternion.Inverse(ShoulderFrame(a));
+            Quaternion bInv = Quaternion.Inverse(ShoulderFrame(b));
+
+            for (int k = 0; k < _numJoints; k++)
+            {
+                var aj = a.joints[_jointIds[k]];
+                var bj = b.joints[_jointIds[k]];
+                if (!aj.isTracked || !bj.isTracked) continue;
+
+                float angle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
+                _jointDeviation[k] += angle;
+                _jointHits[k]++;
+            }
+        }
+
+        // ── Default scoring joints ─────────────────────────────────────────
+
+        private static ScoringJointEntry[] DefaultJoints() => new ScoringJointEntry[]
+        {
+            // Body tracking mode gives us: shoulders + arms + head only.
+            // Reference frame is derived from the shoulder line — see ShoulderFrame().
+
+            // Both shoulders — also anchor the reference frame, so always include them
+            new(TrackedJoint.RightShoulder,  2.0f),
+            new(TrackedJoint.LeftShoulder,   1.2f),
+
+            // Right arm — the racket arm, heaviest weights
+            new(TrackedJoint.RightScapula,   1.5f),
+            new(TrackedJoint.RightUpperArm,  2.5f),
+            new(TrackedJoint.RightForearm,   2.5f),
+            new(TrackedJoint.RightWrist,     2.0f),
+
+            // Left arm — counter-balance signal
+            new(TrackedJoint.LeftUpperArm,   0.8f),
+
+            // Head from HMD — gaze direction, lightweight
+            new(TrackedJoint.Head,           0.5f),
+        };
+    }
+}
