@@ -4,11 +4,10 @@ public class RandomTargetZoneSpawner : MonoBehaviour
 {
     [Header("Détails de la zone de spawns possibles")]
     private Vector3 TopLeftPoint;
+    private Vector3 BottomRightPoint;
 
-    public Vector3 BottomRightPoint;
-
-    public float width;
-    public float height;
+    private float width;
+    private float height;
     
     [Header("Prefab de la target zone")]
     public GameObject TargetZonePrefab;
