@@ -265,9 +265,24 @@ namespace BadmintonPoseTracking
                 frameIndex = FramesCaptured
             };
 
+            // OVRSkeleton gives positions in tracking space (relative to the floor/guardian
+            // origin).  HMD and controller Transforms are in Unity world space.
+            // If XROrigin has any offset from the world origin these will disagree by
+            // exactly that offset — the ~10m shift we saw.
+            //
+            // Fix: convert world-space positions to tracking space using InverseTransformPoint
+            // on the XROrigin transform, which is the root of the tracking hierarchy.
+
             if (hmdTransform != null)
-                WriteJoint(frame, TrackedJoint.Head,
-                           hmdTransform.position, hmdTransform.rotation, true);
+            {
+                Vector3    pos = xrOrigin != null
+                    ? xrOrigin.transform.InverseTransformPoint(hmdTransform.position)
+                    : hmdTransform.position;
+                Quaternion rot = xrOrigin != null
+                    ? Quaternion.Inverse(xrOrigin.transform.rotation) * hmdTransform.rotation
+                    : hmdTransform.rotation;
+                WriteJoint(frame, TrackedJoint.Head, pos, rot, true);
+            }
 
             CaptureBodySkeleton(frame);
             CaptureControllers(frame);
@@ -304,15 +319,27 @@ namespace BadmintonPoseTracking
             }
         }
 
+        private Vector3 ToTrackingPos(Vector3 worldPos) =>
+            xrOrigin != null
+                ? xrOrigin.transform.InverseTransformPoint(worldPos)
+                : worldPos;
+
+        private Quaternion ToTrackingRot(Quaternion worldRot) =>
+            xrOrigin != null
+                ? Quaternion.Inverse(xrOrigin.transform.rotation) * worldRot
+                : worldRot;
+
         private void CaptureControllers(PoseFrame frame)
         {
             if (leftController != null)
             {
-                Transform t = leftController;
-                WriteJoint(frame, TrackedJoint.LeftController, t.position, t.rotation, true);
+                Transform t   = leftController;
+                Vector3   pos = ToTrackingPos(t.position);
+                Quaternion rot = ToTrackingRot(t.rotation);
+                WriteJoint(frame, TrackedJoint.LeftController, pos, rot, true);
 
                 if (!frame.GetJoint(TrackedJoint.LeftWrist).isTracked)
-                    WriteJoint(frame, TrackedJoint.LeftWrist, t.position, t.rotation, true);
+                    WriteJoint(frame, TrackedJoint.LeftWrist, pos, rot, true);
 
                 if (_leftDev.isValid)
                 {
@@ -325,11 +352,13 @@ namespace BadmintonPoseTracking
 
             if (rightController != null)
             {
-                Transform t = rightController;
-                WriteJoint(frame, TrackedJoint.RightController, t.position, t.rotation, true);
+                Transform t    = rightController;
+                Vector3   pos  = ToTrackingPos(t.position);
+                Quaternion rot = ToTrackingRot(t.rotation);
+                WriteJoint(frame, TrackedJoint.RightController, pos, rot, true);
 
                 if (!frame.GetJoint(TrackedJoint.RightWrist).isTracked)
-                    WriteJoint(frame, TrackedJoint.RightWrist, t.position, t.rotation, true);
+                    WriteJoint(frame, TrackedJoint.RightWrist, pos, rot, true);
 
                 if (_rightDev.isValid)
                 {

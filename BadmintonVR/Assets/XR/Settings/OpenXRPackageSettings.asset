@@ -1651,8 +1651,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
   - {fileID: -2762379714117665422}
+<<<<<<< Updated upstream
   - {fileID: -2459641351696748508}
   - {fileID: -8922052172351011965}
+=======
+  - {fileID: -6463914126346179587}
+  - {fileID: 4167004183005133685}
+>>>>>>> Stashed changes
   - {fileID: -5965932980210382837}
   - {fileID: 9042248324458011350}
   - {fileID: -4965462075786919399}
@@ -1662,7 +1667,11 @@ MonoBehaviour:
   - {fileID: 3859017637659130584}
   - {fileID: -8082420961953646223}
   - {fileID: 8728739817187754118}
+<<<<<<< Updated upstream
   - {fileID: -6066581955052199868}
+=======
+  - {fileID: 8573233152741632031}
+>>>>>>> Stashed changes
   - {fileID: 5374540524298729014}
   - {fileID: 9028742897161367682}
   - {fileID: -6876819329180355764}
