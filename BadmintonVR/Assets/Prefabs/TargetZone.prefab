@@ -55,7 +55,7 @@ MeshRenderer:
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
-  m_MotionVectors: 1
+  m_MotionVectors: 0
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
@@ -127,20 +127,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21f343c43da2f4a438f947df31efcb6a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TargetZone
+  zoneRadius: 1
   successColor: {r: 0, g: 1, b: 0, a: 1}
   baseColor: {r: 1, g: 0, b: 0, a: 1}
   OnTargetReached:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: 
-        m_MethodName: 
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
+  spawner: {fileID: 0}

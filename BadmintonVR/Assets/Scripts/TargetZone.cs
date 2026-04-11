@@ -19,6 +19,9 @@ public class TargetZone : MonoBehaviour
     private string colorPropertyName = "_ZoneColor";
     private Renderer meshRenderer;
     private bool active = true;
+
+
+    public GameObject spawner;
     
     void OnValidate()
     {
@@ -59,10 +62,18 @@ public class TargetZone : MonoBehaviour
                 {
                     meshRenderer.material.SetColor(colorPropertyName, successColor);
                 }
-                //Destroy(this);
-                //Destroy(other.gameObject);
+                
+                spawner.GetComponent<RandomTargetZoneSpawner>().spawnNewZone();
+                Destroy(other.gameObject);
                 OnTargetReached?.Invoke();
+
+                //StartCoroutine();
+
+
+
+
             }
         }
     }
+    
 }

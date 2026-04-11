@@ -14,6 +14,9 @@ public class RandomTargetZoneSpawner : MonoBehaviour
     public GameObject TargetZonePrefab;
     
     public float cylinderRadius = 0.5f;
+
+    private GameObject currentTargetZone;
+    
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -38,6 +41,7 @@ public class RandomTargetZoneSpawner : MonoBehaviour
         float y = Random.Range(cylinderRadius, height);
         Vector3 targetZonePos = TopLeftPoint + new Vector3(x,0,y);
         
-        Instantiate(TargetZonePrefab, targetZonePos, Quaternion.identity);
+        currentTargetZone = Instantiate(TargetZonePrefab, targetZonePos, Quaternion.identity);
+        currentTargetZone.GetComponent<TargetZone>().spawner = this.gameObject;
     }
 }
