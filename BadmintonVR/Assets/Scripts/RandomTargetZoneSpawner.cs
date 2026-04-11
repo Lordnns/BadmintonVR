@@ -4,6 +4,7 @@ public class RandomTargetZoneSpawner : MonoBehaviour
 {
     [Header("Détails de la zone de spawns possibles")]
     private Vector3 TopLeftPoint;
+
     private Vector3 BottomRightPoint;
 
     private float width;
@@ -16,7 +17,7 @@ public class RandomTargetZoneSpawner : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        Debug.Log("Top left : " + TopLeftPoint);
+        TopLeftPoint = transform.GetChild(0).position;
         BottomRightPoint = transform.GetChild(1).position;
         
         width = BottomRightPoint.x - TopLeftPoint.x;
@@ -36,6 +37,7 @@ public class RandomTargetZoneSpawner : MonoBehaviour
         float x = Random.Range(cylinderRadius,width);
         float y = Random.Range(cylinderRadius, height);
         Vector3 targetZonePos = TopLeftPoint + new Vector3(x,0,y);
+        
         Instantiate(TargetZonePrefab, targetZonePos, Quaternion.identity);
     }
 }
