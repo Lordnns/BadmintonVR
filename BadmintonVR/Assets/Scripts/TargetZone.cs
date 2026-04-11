@@ -54,28 +54,39 @@ public class TargetZone : MonoBehaviour
     
     void OnTriggerEnter(Collider other)
     {
-        if (active)
-        {
-            if (other.CompareTag("Volant"))
-            {
-                active = false;
-                if (meshRenderer != null)
-                {
-                    meshRenderer.material.SetColor(colorPropertyName, successColor);
-                }
-                
-                spawner.GetComponent<RandomTargetZoneSpawner>().spawnNewZone();
-                Destroy(other.gameObject);
-                OnTargetReached?.Invoke();
 
-                StartCoroutine(DestroyItself());
-            }
-        }
     }
 
     private IEnumerator DestroyItself()
     {
         yield return new WaitForSeconds(0.75f);
         Destroy(this.gameObject);
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        if (active)
+        {
+            
+            if (collision.gameObject.CompareTag("Volant"))
+            {
+                active = false; 
+                if (meshRenderer != null)
+                {
+                    meshRenderer.material.SetColor(colorPropertyName, successColor);
+                }
+                
+                spawner.GetComponent<RandomTargetZoneSpawner>().spawnNewZone();
+                Destroy(collision.gameObject.gameObject);
+                OnTargetReached?.Invoke();
+
+                StartCoroutine(DestroyItself());
+            }
+        }
+        Debug.Log("Collision enter");
+        foreach (ContactPoint contact in collision.contacts)
+        {
+            Debug.DrawRay(contact.point, contact.normal, Color.white);
+        }
     }
 }
