@@ -11104,6 +11104,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Racket1
       objectReference: {fileID: 0}
+    - target: {fileID: 8830291394072663748, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
+      propertyPath: m_Interpolate
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

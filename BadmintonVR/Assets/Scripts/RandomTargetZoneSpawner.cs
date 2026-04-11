@@ -17,15 +17,13 @@ public class RandomTargetZoneSpawner : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        TopLeftPoint = transform.GetChild(0).position;
         Debug.Log("Top left : " + TopLeftPoint);
         BottomRightPoint = transform.GetChild(1).position;
-        Debug.Log("Bottom right : " + BottomRightPoint);
         
         width = BottomRightPoint.x - TopLeftPoint.x;
-        height = BottomRightPoint.y - TopLeftPoint.y;
-        
-        Instantiate(TargetZonePrefab, TopLeftPoint, Quaternion.identity);
+        height = BottomRightPoint.z - TopLeftPoint.z;
+
+        spawnNewZone();
     }
 
     // Update is called once per frame
@@ -38,9 +36,7 @@ public class RandomTargetZoneSpawner : MonoBehaviour
     {
         float x = Random.Range(cylinderRadius,width);
         float y = Random.Range(cylinderRadius, height);
-        
         Vector3 targetZonePos = TopLeftPoint + new Vector3(x,0,y);
-        
         Instantiate(TargetZonePrefab, targetZonePos, Quaternion.identity);
     }
 }

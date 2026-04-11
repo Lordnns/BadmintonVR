@@ -601,7 +601,7 @@ MonoBehaviour:
   nameUi: 'Android XR: AR Anchor'
   version: 0.1.0
   featureIdInternal: com.unity.openxr.feature.arfoundation-androidxr-anchor
-  openxrExtensionStrings: XR_ANDROID_trackables XR_ANDROID_device_anchor_persistence
+  openxrExtensionStrings: XR_ANDROID_trackables
   company: Unity Technologies
   priority: 0
   targetOpenXRApiVersion: 
@@ -1308,7 +1308,7 @@ MonoBehaviour:
   nameUi: 'Android XR: AR Anchor'
   version: 0.1.0
   featureIdInternal: com.unity.openxr.feature.arfoundation-androidxr-anchor
-  openxrExtensionStrings: XR_ANDROID_trackables XR_ANDROID_device_anchor_persistence
+  openxrExtensionStrings: XR_ANDROID_trackables
   company: Unity Technologies
   priority: 0
   targetOpenXRApiVersion: 
@@ -1651,8 +1651,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
   - {fileID: -2762379714117665422}
+  - {fileID: -2459641351696748508}
+  - {fileID: -8922052172351011965}
   - {fileID: -5965932980210382837}
+  - {fileID: 9042248324458011350}
+  - {fileID: -4965462075786919399}
+  - {fileID: 6130168380299012999}
   - {fileID: 8496415671519626554}
+  - {fileID: 6058392856380308223}
+  - {fileID: 3859017637659130584}
+  - {fileID: -8082420961953646223}
+  - {fileID: 8728739817187754118}
+  - {fileID: -6066581955052199868}
   - {fileID: 5374540524298729014}
   - {fileID: 9028742897161367682}
   - {fileID: -6876819329180355764}
@@ -2218,7 +2228,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 90ae1e8c3c7a542bba339faf2e771c5a, type: 3}
-  m_Name: AndroidXRSupportFeature Standalone
+  m_Name: AndroidXRSupportFeature Android
   m_EditorClassIdentifier: Unity.XR.AndroidOpenXR::UnityEngine.XR.OpenXR.Features.Android.AndroidXRSupportFeature
   m_enabled: 0
   nameUi: Android XR Support
@@ -2917,8 +2927,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
   - {fileID: -2684795852256468377}
-  - {fileID: 2341330612139613526}
-  - {fileID: -1725275029601666859}
+  - {fileID: 5670275669355139577}
+  - {fileID: 4167004183005133685}
   - {fileID: -1882194848542440026}
   - {fileID: 7650882521403899305}
   - {fileID: -528987344558103110}
@@ -2929,7 +2939,7 @@ MonoBehaviour:
   - {fileID: 8897748669232576930}
   - {fileID: 3525703297012054114}
   - {fileID: -8571164021085351215}
-  - {fileID: 3660300266392461362}
+  - {fileID: 8573233152741632031}
   - {fileID: 7538480250451270805}
   - {fileID: -8794797409538389482}
   - {fileID: 4259180807866388474}
@@ -2982,7 +2992,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6c36843bac48b29469f79baf3c98f9b6, type: 3}
-  m_Name: AndroidXRHandMeshData Standalone
+  m_Name: AndroidXRHandMeshData Android
   m_EditorClassIdentifier: Unity.XR.AndroidOpenXR::UnityEngine.XR.OpenXR.Features.Android.AndroidXRHandMeshData
   m_enabled: 0
   nameUi: 'Android XR: Hand Mesh Data'
