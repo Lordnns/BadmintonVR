@@ -57,6 +57,7 @@ public class ShuttlecockScript : MonoBehaviour
     {
         if (other.CompareTag("Ground"))
         {
+            Debug.Log("Touched Ground");
             hasTouchedGround = true;
         }
     }

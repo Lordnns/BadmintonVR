@@ -59,6 +59,7 @@ public class TargetZone : MonoBehaviour
     {
         if (active && other.CompareTag("Volant"))
         {
+            Debug.Log("!other.GetComponent<ShuttlecockScript>().hasTouchedGround : " + !other.GetComponent<ShuttlecockScript>().hasTouchedGround);
             if (!other.GetComponent<ShuttlecockScript>().hasTouchedGround)
             {
                 active = false; 
