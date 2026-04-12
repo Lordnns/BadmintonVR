@@ -135,3 +135,5 @@ MonoBehaviour:
       m_Calls: []
   spawner: {fileID: 0}
   gamemode: {fileID: 0}
+  floatingScorePrefab: {fileID: 1573316893190104432, guid: 9b0cdc0add08c0f48bfd08b80e15a79a, type: 3}
+  textSpawnHeight: 1.5

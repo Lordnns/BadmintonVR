@@ -25,6 +25,10 @@ public class TargetZone : MonoBehaviour
     public GameObject spawner;
     public GameObject gamemode;
     
+    [Header("Interface (UI)")]
+    public GameObject floatingScorePrefab; // Glisse ton prefab ici dans l'inspecteur
+    public float textSpawnHeight = 1.5f;
+    
     void OnValidate()
     {
         ApplySize();
@@ -54,7 +58,6 @@ public class TargetZone : MonoBehaviour
     }
     
     
-    // A TESTER
     void OnTriggerEnter(Collider other)
     {
         if (active && other.CompareTag("Volant"))
@@ -78,7 +81,21 @@ public class TargetZone : MonoBehaviour
             
                 int score = Mathf.RoundToInt(Mathf.Lerp(10f, 100f, precision));
                 gamemode.GetComponent<Gamemode>().playerScore += score;
-                Debug.Log("Score: " + score);
+                
+                // Spawn a floating text above the trigger zone to make it clearer which score you got for that shot
+                
+                if (floatingScorePrefab != null)
+                {
+                    Vector3 spawnPosition = centerPos + (Vector3.up * textSpawnHeight);
+                    Quaternion rotationVoulue = Quaternion.Euler(0f, -90f, 0f);
+                    GameObject popup = Instantiate(floatingScorePrefab, spawnPosition, rotationVoulue);
+                    FloatingText floatingScript = popup.GetComponent<FloatingText>();
+                    if (floatingScript != null)
+                    {
+                        floatingScript.Setup(score);
+                    }
+                }
+                
                 
                 spawner.GetComponent<RandomTargetZoneSpawner>().spawnNewZone();
                 Destroy(other.gameObject);
@@ -94,32 +111,4 @@ public class TargetZone : MonoBehaviour
         yield return new WaitForSeconds(0.75f);
         Destroy(this.gameObject);
     }
-
-    /* void OnCollisionEnter(Collision collision)
-    {
-        if (active)
-        {
-            
-            if (collision.gameObject.CompareTag("Volant"))
-            {
-                active = false; 
-                if (meshRenderer != null)
-                {
-                    meshRenderer.material.SetColor(colorPropertyName, successColor);
-                }
-                
-                spawner.GetComponent<RandomTargetZoneSpawner>().spawnNewZone();
-                Destroy(collision.gameObject.gameObject);
-                OnTargetReached?.Invoke();
-
-                StartCoroutine(DestroyItself());
-            }
-        }
-        Debug.Log("Collision enter");
-        foreach (ContactPoint contact in collision.contacts)
-        {
-            Debug.DrawRay(contact.point, contact.normal, Color.white);
-        }
-    }
-    */
 }
