@@ -3,8 +3,9 @@ using UnityEngine;
 [RequireComponent (typeof(Rigidbody))]
 public class ShuttlecockScript : MonoBehaviour
 {
+    [SerializeField] ShuttlecockData data;
+
     [Header("Aerodynamism")]
-    public float dragCoefficient = 0.5f;
     public float liftCoefficient = 0.1f;
     public float autoRotateStrength = 8f;
     public float mass = 1f;
@@ -16,12 +17,12 @@ public class ShuttlecockScript : MonoBehaviour
     
     [Tooltip("A touché le sol")]
     public bool hasTouchedGround = false;
-    
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        rb.mass = mass;
+        rb.mass = data.shuttlecockMass;
         rb.useGravity = true;
         rb.angularDamping = angularDamping;
     }
@@ -40,7 +41,7 @@ public class ShuttlecockScript : MonoBehaviour
         if (speed < 1f) return;
 
         // Drag proportional to speed
-        Vector3 drag = dragCoefficient * speed * mass * -velocity.normalized;
+        Vector3 drag = data.dragCoefficient * speed * mass * -velocity.normalized;
         rb.AddForce(drag, ForceMode.Force);
     }
 

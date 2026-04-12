@@ -215,8 +215,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25ae034b766a6e448b437b6051f9f41f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  dragCoefficient: 0.3
-  liftCoefficient: 0.1
+  data: {fileID: 11400000, guid: 9680b010a9097ab44823e0a6f97bbd00, type: 2}
+  liftCoefficient: 0
   autoRotateStrength: 8
   mass: 0.005
   angularDamping: 3
+  hasTouchedGround: 0
