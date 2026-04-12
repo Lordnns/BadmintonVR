@@ -1,33 +1,41 @@
 ﻿// ============================================================
 //  SwingCoordinator.cs
 //
-//  Orchestrates the two recording modes using PoseRecorder,
-//  SwingDatabase, and SwingMatcher.
+//  Orchestrates recording, trimming, scoring, and replay.
 //
 //  ── DEV MODE (recording reference swings) ───────────────────
 //
-//    Call via Inspector button or script:
-//      coordinator.StartDevRecording("smash_overhead");
-//      coordinator.StopDevRecording();
-//      // → saves to StreamingAssets/Swings/smash_overhead.json
+//    coordinator.StartDevRecording("smash_overhead");
+//    coordinator.StopDevRecording();
+//    // → saves to StreamingAssets/Swings/smash_overhead.json
 //
-//  ── GAMEPLAY MODE (comparing player swings) ─────────────────
+//  ── GAMEPLAY MODE (launcher-driven) ─────────────────────────
 //
-//    Fire and forget — the result comes back via OnSwingScored:
-//      coordinator.StartGameplayRecording("smash_overhead");
-//      coordinator.StopGameplayRecording();
-//      // → SwingScore fires on OnSwingScored, capture is discarded
+//    Shuttlecock launcher fires:
+//      coordinator.OnLaunch("smash_overhead");
+//      // → recording starts immediately
 //
-//  Both modes use exactly the same PoseRecorder underneath.
-//  The only difference is what happens with the PoseCapture
-//  after StopRecording() returns.
+//    Shuttlecock lands (collision / trigger / timeout):
+//      coordinator.OnShuttlecockLanded();
+//      // → stops recording
+//      // → trims capture to the active swing window
+//      // → scores trimmed capture against the reference JSON
+//      // → fires OnSwingScored
+//      // → holds both captures for optional replay
 //
-//  ── INSPECTOR BINDINGS ──────────────────────────────────────
-//    - PoseRecorder     : drag in
-//    - FeedbackLabel    : TMP_Text for on-screen feedback (optional)
-//    - devSwingName     : name to save when dev-recording
-//    - targetSwingName  : reference to compare against in gameplay
-//    - OnSwingScored    : UnityEvent<float> or use the C# event
+//    Show the replay (two skeletons — player vs reference):
+//      coordinator.ShowReplay();
+//      // → playerVisualizer plays the trimmed capture (green)
+//      // → referenceVisualizer plays the reference JSON (blue)
+//
+//    Hide the replay:
+//      coordinator.HideReplay();
+//
+//  ── INSPECTOR SETUP ─────────────────────────────────────────
+//    PoseRecorder              : auto-found or drag in
+//    playerVisualizer          : SwingReplayVisualizer (green)
+//    referenceVisualizer       : SwingReplayVisualizer (blue)
+//    feedbackLabel             : TMP_Text (optional)
 // ============================================================
 
 using System;
@@ -47,16 +55,24 @@ namespace BadmintonPoseTracking
         [Header("Components")]
         public PoseRecorder recorder;
 
+        [Header("Replay Visualizers  (optional)")]
+        [Tooltip("Skeleton that plays back the player's trimmed swing.\n" +
+                 "Create a GameObject with SwingReplayVisualizer, set autoPlayOnStart=false.")]
+        public SwingReplayVisualizer playerVisualizer;
+
+        [Tooltip("Skeleton that plays back the reference swing from JSON.\n" +
+                 "Create a second GameObject with SwingReplayVisualizer, set autoPlayOnStart=false.")]
+        public SwingReplayVisualizer referenceVisualizer;
+
+        [Header("Replay Colors")]
+        public Color playerJointColor    = new Color(0.2f, 1f, 0.4f, 0.85f);    // green
+        public Color playerBoneColor     = new Color(0.2f, 0.8f, 0.4f, 0.4f);
+        public Color referenceJointColor = new Color(0.2f, 0.8f, 1f, 0.85f);    // blue
+        public Color referenceBoneColor  = new Color(0.2f, 0.6f, 1f, 0.4f);
+
         [Header("Dev Recording")]
         [Tooltip("Name that will be saved to disk when dev-recording.")]
         public string devSwingName = "swing_01";
-
-        [Header("Gameplay — Swing Slots")]
-        [Tooltip("JSON name for the first swing type (e.g. smash).")]
-        public string swing1Name = "smash";
-
-        [Tooltip("JSON name for the second swing type (e.g. net_shot).")]
-        public string swing2Name = "net_shot";
 
         [Header("Matching")]
         [Tooltip("Sakoe-Chiba band. 0.20 = ±20% timing tolerance.")]
@@ -67,9 +83,20 @@ namespace BadmintonPoseTracking
         [Range(15f, 60f)]
         public float matchSensitivity = 30f;
 
+        [Tooltip("Automatically trim idle frames from the player capture.\n" +
+                 "Essential for launcher mode — the recording spans launch→land\n" +
+                 "but only the actual swing matters for scoring.")]
+        public bool autoTrimCapture = true;
+
         [Tooltip("Score threshold for a 'pass'.  0–100.")]
         [Range(40f, 90f)]
         public float passThreshold = 60f;
+
+        [Header("Launcher Settings")]
+        [Tooltip("Max recording duration (seconds).  Safety cap so a missed\n" +
+                 "OnShuttlecockLanded() call doesn't record forever.")]
+        [Range(2f, 15f)]
+        public float maxRecordingDuration = 8f;
 
         [Header("UI")]
         public TMP_Text feedbackLabel;
@@ -78,32 +105,42 @@ namespace BadmintonPoseTracking
         [Header("Input Actions  (optional — also callable from script)")]
         public InputActionReference devStartAction;
         public InputActionReference devStopAction;
-        public InputActionReference gameplayStartAction;
-        public InputActionReference gameplayStopAction;
 
         // ── C# Events ─────────────────────────────────────────────────────
 
-        /// <summary>Fired after a gameplay recording is scored.  Carries the full SwingScore.</summary>
+        /// <summary>Fired after a gameplay capture is trimmed and scored.</summary>
         public event Action<SwingScore> OnSwingScored;
 
-        /// <summary>Fired when a dev recording is successfully saved.</summary>
-        public event Action<string>     OnSwingSaved;
+        /// <summary>Fired when a dev recording is saved.</summary>
+        public event Action<string> OnSwingSaved;
+
+        /// <summary>
+        /// Fired when a replay is ready.  Carries (playerCapture, referenceCapture).
+        /// Listen to this if you want custom replay handling instead of the built-in visualizers.
+        /// </summary>
+        public event Action<PoseCapture, PoseCapture> OnReplayReady;
 
         // ── Unity Events (Inspector-bindable) ─────────────────────────────
 
         [Header("Unity Events")]
-        public UnityEvent<float>  onSwingScored;   // float = 0–100 score
-        public UnityEvent<string> onSwingSaved;    // string = swing name
+        public UnityEvent<float>  onSwingScored;   // float = 0–100
+        public UnityEvent<string> onSwingSaved;
 
         // ── Private state ──────────────────────────────────────────────────
 
-        private string    _activeSwingName;
+        private string _activeSwingName;
         private enum Mode { Idle, DevRecording, GameplayRecording }
         private Mode _mode = Mode.Idle;
 
         private SwingDatabase _database;
         private SwingMatcher  _matcher;
         private Coroutine     _feedbackCoroutine;
+        private Coroutine     _timeoutCoroutine;
+
+        // Last scored round — available for replay
+        private PoseCapture _lastPlayerCapture;
+        private PoseCapture _lastReferenceCapture;
+        private SwingScore  _lastScore;
 
         // ── Unity lifecycle ────────────────────────────────────────────────
 
@@ -115,56 +152,44 @@ namespace BadmintonPoseTracking
             _matcher  = new SwingMatcher
             {
                 BandFraction = dtwBandFraction,
-                Sensitivity  = matchSensitivity
+                Sensitivity  = matchSensitivity,
+                AutoTrim     = autoTrimCapture
             };
 
-            // Pre-load all reference swings from disk into memory
             _database.LoadAll();
         }
 
         private void OnEnable()
         {
-            Bind(devStartAction,      StartDevRecording);
-            Bind(devStopAction,       StopDevRecording);
-            Bind(gameplayStartAction, StartGameplayRecording);
-            Bind(gameplayStopAction,  StopGameplayRecording);
+            Bind(devStartAction, StartDevRecording);
+            Bind(devStopAction,  StopDevRecording);
         }
 
         private void OnDisable()
         {
-            Unbind(devStartAction,      StartDevRecording);
-            Unbind(devStopAction,       StopDevRecording);
-            Unbind(gameplayStartAction, StartGameplayRecording);
-            Unbind(gameplayStopAction,  StopGameplayRecording);
+            Unbind(devStartAction, StartDevRecording);
+            Unbind(devStopAction,  StopDevRecording);
 
             if (recorder.IsRecording) recorder.StopRecording();
+            CancelTimeout();
         }
 
         private void OnValidate()
         {
-            // Keep matcher in sync when values are tweaked in Inspector at runtime
             if (_matcher != null)
             {
                 _matcher.BandFraction = dtwBandFraction;
                 _matcher.Sensitivity  = matchSensitivity;
+                _matcher.AutoTrim     = autoTrimCapture;
             }
         }
 
-        // ── DEV API ───────────────────────────────────────────────────────
+        // =================================================================
+        //  DEV API
+        // =================================================================
 
-        /// <summary>
-        /// Start recording a reference swing using the current devSwingName.
-        /// Parameterless so it can be bound to a Button or InputActionReference directly.
-        /// </summary>
-        public void StartDevRecording()
-        {
-            StartDevRecording(null);
-        }
+        public void StartDevRecording()           => StartDevRecording(null);
 
-        /// <summary>
-        /// Start recording a reference swing with an explicit name.
-        /// The capture will be saved to disk as &lt;swingName&gt;.json when stopped.
-        /// </summary>
         public void StartDevRecording(string swingName)
         {
             if (_mode != Mode.Idle)
@@ -181,7 +206,6 @@ namespace BadmintonPoseTracking
             Debug.Log($"[SwingCoordinator] Dev recording started for '{devSwingName}'.");
         }
 
-        /// <summary>Stop dev recording and save the result to disk.</summary>
         public void StopDevRecording()
         {
             if (_mode != Mode.DevRecording)
@@ -207,110 +231,205 @@ namespace BadmintonPoseTracking
 
             OnSwingSaved?.Invoke(devSwingName);
             onSwingSaved?.Invoke(devSwingName);
-
             Debug.Log($"[SwingCoordinator] Dev recording complete: {msg}");
         }
 
-        // ── GAMEPLAY API ──────────────────────────────────────────────────
+        // =================================================================
+        //  GAMEPLAY API — launcher-driven
+        // =================================================================
 
         /// <summary>
-        /// Start recording the player's swing using the current targetSwingName.
-        /// Parameterless so it can be bound to a Button or InputActionReference directly.
+        /// Call when the shuttlecock launcher fires.
+        /// Starts recording immediately.  The recording runs until
+        /// OnShuttlecockLanded() is called (or the safety timeout fires).
         /// </summary>
-        public void StartGameplayRecording()
-        {
-            StartGameplayRecording(null);
-        }
-
-        /// <summary>
-        /// Start recording the player's swing for comparison against an explicit reference.
-        /// </summary>
-        public void StartGameplayRecording(string referenceSwingName)
+        /// <param name="referenceSwingName">
+        /// Which reference to compare against (e.g. "smash_overhead").
+        /// </param>
+        public void OnLaunch(string referenceSwingName)
         {
             if (_mode != Mode.Idle)
             {
-                Debug.LogWarning("[SwingCoordinator] Already recording.");
+                Debug.LogWarning("[SwingCoordinator] Already recording — ignoring launch.");
                 return;
             }
 
-            if (!string.IsNullOrEmpty(referenceSwingName))
-                _activeSwingName = referenceSwingName;
+            _activeSwingName = referenceSwingName;
+
+            // Verify the reference exists before we start recording
+            if (!_database.Exists(referenceSwingName))
+            {
+                Debug.LogError($"[SwingCoordinator] Reference '{referenceSwingName}' not found. " +
+                               "Record it in dev mode first.");
+                ShowFeedback($"No reference for '{referenceSwingName}'.", Color.red);
+                return;
+            }
 
             _mode = Mode.GameplayRecording;
             recorder.StartRecording(estimatedFrames: EstimatedFrames());
-            Debug.Log($"[SwingCoordinator] Gameplay recording started. Will compare against '{_activeSwingName}'.");
+
+            // Safety timeout — auto-stop if OnShuttlecockLanded is never called
+            CancelTimeout();
+            _timeoutCoroutine = StartCoroutine(RecordingTimeout());
+
+            Debug.Log($"[SwingCoordinator] Launch! Recording started. " +
+                      $"Will compare against '{_activeSwingName}'.");
         }
 
         /// <summary>
-        /// Stop gameplay recording, compare against the reference, fire OnSwingScored.
-        /// The player's capture is NOT saved — it is discarded after scoring.
+        /// Call when the shuttlecock hits the ground / goes out.
+        /// Stops recording → trims → scores → fires events → holds replay data.
         /// </summary>
-        public void StopGameplayRecording()
+        public void OnShuttlecockLanded()
         {
             if (_mode != Mode.GameplayRecording)
             {
-                Debug.LogWarning("[SwingCoordinator] Not in gameplay recording mode.");
+                Debug.LogWarning("[SwingCoordinator] Not recording — ignoring land event.");
                 return;
             }
 
-            PoseCapture playerCapture = recorder.StopRecording();
+            CancelTimeout();
+            ProcessGameplayCapture();
+        }
+
+        // ── Legacy convenience (still works if you prefer manual start/stop) ──
+
+        public void StartGameplayRecording(string refName) => OnLaunch(refName);
+        public void StopGameplayRecording()                => OnShuttlecockLanded();
+
+        // =================================================================
+        //  REPLAY
+        // =================================================================
+
+        /// <summary>
+        /// Plays back the last scored swing overlaid with the reference.
+        /// Requires playerVisualizer and referenceVisualizer to be assigned.
+        /// </summary>
+        public void ShowReplay()
+        {
+            if (_lastPlayerCapture == null || _lastReferenceCapture == null)
+            {
+                Debug.LogWarning("[SwingCoordinator] No scored swing to replay.");
+                return;
+            }
+
+            if (playerVisualizer != null)
+            {
+                playerVisualizer.SetColors(playerJointColor, playerBoneColor);
+                playerVisualizer.PlayCapture(_lastPlayerCapture);
+            }
+
+            if (referenceVisualizer != null)
+            {
+                referenceVisualizer.SetColors(referenceJointColor, referenceBoneColor);
+                referenceVisualizer.PlayCapture(_lastReferenceCapture);
+            }
+
+            Debug.Log("[SwingCoordinator] Replay started " +
+                      $"(player: {_lastPlayerCapture.FrameCount}f, " +
+                      $"ref: {_lastReferenceCapture.FrameCount}f).");
+        }
+
+        /// <summary>Stop both replay skeletons.</summary>
+        public void HideReplay()
+        {
+            if (playerVisualizer    != null) playerVisualizer.Stop();
+            if (referenceVisualizer != null) referenceVisualizer.Stop();
+        }
+
+        /// <summary>True if there is a scored swing available for replay.</summary>
+        public bool HasReplay => _lastPlayerCapture != null && _lastReferenceCapture != null;
+
+        /// <summary>Last scored result (null before the first gameplay round).</summary>
+        public SwingScore LastScore => _lastScore;
+
+        // =================================================================
+        //  INTERNAL — scoring pipeline
+        // =================================================================
+
+        private void ProcessGameplayCapture()
+        {
+            PoseCapture rawCapture = recorder.StopRecording();
             _mode = Mode.Idle;
 
-            if (playerCapture == null || playerCapture.FrameCount == 0)
+            if (rawCapture == null || rawCapture.FrameCount == 0)
             {
                 ShowFeedback("No swing detected.", Color.gray);
                 return;
             }
 
-            // Load reference (O(1) if already cached)
+            // Load reference (O(1) if cached)
             PoseCapture reference = _database.Load(_activeSwingName);
             if (reference == null)
             {
-                Debug.LogError($"[SwingCoordinator] Reference '{_activeSwingName}' not found. " +
-                               "Record it in dev mode first.");
-                ShowFeedback($"No reference for '{_activeSwingName}'.", Color.red);
+                Debug.LogError($"[SwingCoordinator] Reference '{_activeSwingName}' disappeared!");
                 return;
             }
 
-            // DTW comparison — playerCapture is used here, then falls out of scope
-            SwingScore score = _matcher.Compare(playerCapture, reference);
+            // ── Trim + Score ───────────────────────────────────────────────
+            //
+            //    We trim here so we can hold the trimmed capture for replay.
+            //    Then we tell the matcher to skip its own trim pass.
 
-            // Fire events
+            PoseCapture trimmed = autoTrimCapture
+                ? SwingTrimmer.Trim(rawCapture, reference.DurationSeconds,
+                                    reference.CaptureRateFps)
+                : rawCapture;
+
+            // Temporarily disable matcher's own trim — we already did it
+            bool savedAutoTrim = _matcher.AutoTrim;
+            _matcher.AutoTrim = false;
+            SwingScore score = _matcher.Compare(trimmed, reference);
+            _matcher.AutoTrim = savedAutoTrim;
+
+            // Populate trim metadata
+            if (trimmed != rawCapture)
+            {
+                score.OriginalFrameCount = rawCapture.FrameCount;
+                score.TrimmedFrameCount  = trimmed.FrameCount;
+            }
+
+            // ── Hold for replay ────────────────────────────────────────────
+
+            _lastPlayerCapture    = trimmed;
+            _lastReferenceCapture = reference;
+            _lastScore            = score;
+
+            // ── Fire events ────────────────────────────────────────────────
+
             OnSwingScored?.Invoke(score);
             onSwingScored?.Invoke(score.Score);
+            OnReplayReady?.Invoke(trimmed, reference);
 
-            // Show feedback
-            bool   pass    = score.Passes(passThreshold);
-            Color  color   = pass ? Color.green : Color.yellow;
-            string weak    = score.WeakJoints.Length > 0
+            // ── Feedback ───────────────────────────────────────────────────
+
+            bool   pass  = score.Passes(passThreshold);
+            Color  color = pass ? Color.green : Color.yellow;
+            string weak  = score.WeakJoints.Length > 0
                 ? $"\nFix: {string.Join(", ", score.WeakJoints)}"
                 : string.Empty;
+            string trim  = score.OriginalFrameCount > 0
+                ? $"  (trimmed {score.OriginalFrameCount}→{score.TrimmedFrameCount}f)"
+                : string.Empty;
+
             ShowFeedback($"{score.Score:F0} / 100{weak}", color);
+            Debug.Log($"[SwingCoordinator] {score}{trim}");
 
-            Debug.Log($"[SwingCoordinator] {score}");
-
-            // playerCapture is now eligible for GC — no references held
+            // rawCapture falls out of scope — GC eligible
         }
 
-        // ── Swing slot triggers ───────────────────────────────────────────
-        //    Call these from game logic to start recording against a preset slot.
-
-        /// <summary>Start gameplay recording against swing1Name (e.g. "smash").</summary>
-        public void StartSwing1() => StartGameplayRecording(swing1Name);
-
-        /// <summary>Start gameplay recording against swing2Name (e.g. "net_shot").</summary>
-        public void StartSwing2() => StartGameplayRecording(swing2Name);
-
-        // ── Convenience properties ─────────────────────────────────────────
+        // =================================================================
+        //  PROPERTIES
+        // =================================================================
 
         public bool IsDevRecording      => _mode == Mode.DevRecording;
         public bool IsGameplayRecording => _mode == Mode.GameplayRecording;
         public bool IsRecording         => _mode != Mode.Idle;
+        public SwingDatabase Database   => _database;
 
-        /// <summary>All reference swing names currently loaded into memory.</summary>
-        public SwingDatabase Database => _database;
-
-        // ── UI ────────────────────────────────────────────────────────────
+        // =================================================================
+        //  UI
+        // =================================================================
 
         private void ShowFeedback(string message, Color color)
         {
@@ -337,23 +456,42 @@ namespace BadmintonPoseTracking
             feedbackLabel.text = string.Empty;
         }
 
-        // ── Helpers ───────────────────────────────────────────────────────
+        // =================================================================
+        //  HELPERS
+        // =================================================================
 
         private int EstimatedFrames()
         {
-            // Pre-size the frame list to avoid List<> internal resizing.
-            // Assume max 5-second swing at the configured capture rate.
-            return Mathf.CeilToInt(recorder.captureRateFps * 5f);
+            return Mathf.CeilToInt(recorder.captureRateFps * maxRecordingDuration);
         }
 
-        private static void Bind(InputActionReference r, System.Action cb)
+        private IEnumerator RecordingTimeout()
+        {
+            yield return new WaitForSeconds(maxRecordingDuration);
+            if (_mode == Mode.GameplayRecording)
+            {
+                Debug.LogWarning("[SwingCoordinator] Recording timeout — auto-stopping.");
+                ProcessGameplayCapture();
+            }
+        }
+
+        private void CancelTimeout()
+        {
+            if (_timeoutCoroutine != null)
+            {
+                StopCoroutine(_timeoutCoroutine);
+                _timeoutCoroutine = null;
+            }
+        }
+
+        private static void Bind(InputActionReference r, Action cb)
         {
             if (r == null) return;
             r.action.Enable();
             r.action.performed += _ => cb();
         }
 
-        private static void Unbind(InputActionReference r, System.Action cb)
+        private static void Unbind(InputActionReference r, Action cb)
         {
             if (r == null) return;
             r.action.performed -= _ => cb();

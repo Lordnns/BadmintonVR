@@ -17,9 +17,16 @@ namespace BadmintonPoseTracking
         [Header("Swing")]
         public string swingName = "smash";
 
+        [Tooltip("If true, loads swingName from disk and plays on Start().\n" +
+                 "Set to false when you plan to call PlayCapture() from code.")]
+        public bool autoPlayOnStart = true;
+
         [Header("Playback")]
         [Range(0.1f, 3f)]
         public float playbackSpeed = 1f;
+
+        [Tooltip("Loop playback.  If false, plays once then stops.")]
+        public bool loop = true;
 
         [Header("Visuals")]
         [Range(0.01f, 0.1f)]  public float jointRadius = 0.03f;
@@ -55,18 +62,86 @@ namespace BadmintonPoseTracking
 
         private Material _jointMat;
         private Material _boneMat;
+        private Coroutine _playCoroutine;
+        private bool      _skeletonBuilt;
 
         private void Start()
         {
             CreateMaterials();
             BuildSkeleton();
-            LoadAndPlay();
+
+            if (autoPlayOnStart && !string.IsNullOrEmpty(swingName))
+                LoadAndPlay();
         }
 
         private void OnDestroy()
         {
             Destroy(_jointMat);
             Destroy(_boneMat);
+        }
+
+        // ── Public API ─────────────────────────────────────────────────────
+
+        /// <summary>True while a playback coroutine is running.</summary>
+        public bool IsPlaying => _playCoroutine != null;
+
+        /// <summary>
+        /// Play frames directly from a PoseCapture (e.g. the trimmed player capture).
+        /// Stops any current playback first.
+        /// </summary>
+        public void PlayCapture(PoseCapture capture)
+        {
+            if (capture == null || capture.FrameCount == 0) return;
+            PlayFrames(capture.Frames, capture.CaptureRateFps);
+        }
+
+        /// <summary>
+        /// Play frames directly from an array + fps.
+        /// </summary>
+        public void PlayFrames(PoseFrame[] frames, float fps)
+        {
+            if (frames == null || frames.Length == 0) return;
+
+            EnsureSkeleton();
+            Stop();
+
+            _frames         = frames;
+            _captureRateFps = fps > 0 ? fps : 30f;
+
+            Debug.Log($"[SwingReplayVisualizer] Playing {_frames.Length} frames at {_captureRateFps} fps");
+            _playCoroutine = StartCoroutine(PlayLoop());
+        }
+
+        /// <summary>
+        /// Load and play a swing by name from StreamingAssets/Swings/.
+        /// </summary>
+        public void PlayFromDisk(string name)
+        {
+            swingName = name;
+            LoadAndPlay();
+        }
+
+        /// <summary>Stop playback and hide the skeleton.</summary>
+        public void Stop()
+        {
+            if (_playCoroutine != null)
+            {
+                StopCoroutine(_playCoroutine);
+                _playCoroutine = null;
+            }
+            HideAll();
+        }
+
+        /// <summary>
+        /// Change skeleton colors at runtime.  Useful for differentiating
+        /// the player skeleton from the reference skeleton.
+        /// </summary>
+        public void SetColors(Color joint, Color bone)
+        {
+            jointColor = joint;
+            boneColor  = bone;
+            if (_jointMat != null) _jointMat.color = joint;
+            if (_boneMat  != null) _boneMat.color  = bone;
         }
 
         private void LoadAndPlay()
@@ -85,11 +160,10 @@ namespace BadmintonPoseTracking
                 return;
             }
 
-            _frames         = dto.frames;
-            _captureRateFps = dto.captureRateFps > 0 ? dto.captureRateFps : 30f;
+            float fps = dto.captureRateFps > 0 ? dto.captureRateFps : 30f;
 
-            Debug.Log($"[SwingReplayVisualizer] '{swingName}'  {_frames.Length} frames — looping");
-            StartCoroutine(PlayLoop());
+            Debug.Log($"[SwingReplayVisualizer] '{swingName}'  {dto.frames.Length} frames — looping");
+            PlayFrames(dto.frames, fps);
         }
 
         private IEnumerator PlayLoop()
@@ -100,7 +174,16 @@ namespace BadmintonPoseTracking
             {
                 ApplyFrame(_frames[i]);
                 yield return wait;
-                i = (i + 1) % _frames.Length;
+                i++;
+                if (i >= _frames.Length)
+                {
+                    if (!loop)
+                    {
+                        _playCoroutine = null;
+                        yield break;
+                    }
+                    i = 0;
+                }
             }
         }
 
@@ -130,6 +213,21 @@ namespace BadmintonPoseTracking
                 bt.gameObject.SetActive(true);
                 StretchBone(bt, tA.position, tB.position);
             }
+        }
+
+        private void EnsureSkeleton()
+        {
+            if (_skeletonBuilt) return;
+            if (_jointMat == null) CreateMaterials();
+            BuildSkeleton();
+        }
+
+        private void HideAll()
+        {
+            foreach (var kvp in _joints)
+                kvp.Value.gameObject.SetActive(false);
+            foreach (var (_, _, bt) in _bones)
+                bt.gameObject.SetActive(false);
         }
 
         private void BuildSkeleton()
@@ -163,6 +261,8 @@ namespace BadmintonPoseTracking
                 go.SetActive(false);
                 _bones.Add((a, b, go.transform));
             }
+
+            _skeletonBuilt = true;
         }
 
         private void StretchBone(Transform t, Vector3 a, Vector3 b)

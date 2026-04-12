@@ -65,11 +65,23 @@ namespace BadmintonPoseTracking
         /// <summary>Joints that deviated most on average across the matched path.</summary>
         public string[] WeakJoints;
 
+        /// <summary>Original player frame count before trimming (-1 if no trim).</summary>
+        public int OriginalFrameCount = -1;
+
+        /// <summary>Frame count actually sent into DTW (after trimming).</summary>
+        public int TrimmedFrameCount  = -1;
+
         /// <summary>Convenience: Score >= threshold → passing grade.</summary>
         public bool Passes(float threshold = 60f) => Score >= threshold;
 
-        public override string ToString() =>
-            $"Score={Score:F1}  NormCost={NormalisedCost:F3}  Weak=[{string.Join(", ", WeakJoints)}]";
+        public override string ToString()
+        {
+            string trim = OriginalFrameCount > 0
+                ? $"  Trim={OriginalFrameCount}→{TrimmedFrameCount}f"
+                : string.Empty;
+            return $"Score={Score:F1}  NormCost={NormalisedCost:F3}" +
+                   $"  Weak=[{string.Join(", ", WeakJoints)}]{trim}";
+        }
     }
 
     // ── Matcher ───────────────────────────────────────────────────────────
@@ -91,6 +103,14 @@ namespace BadmintonPoseTracking
         /// Lower = stricter grading.  Good range: 20–45.
         /// </summary>
         public float Sensitivity = 30f;
+
+        /// <summary>
+        /// When true, the player capture is automatically trimmed to its
+        /// active swing window before DTW comparison.  This eliminates
+        /// idle padding at the start/end of a capture so that only the
+        /// actual movement is scored.
+        /// </summary>
+        public bool AutoTrim = true;
 
         // ── Pre-allocated DTW matrix ──────────────────────────────────────
 
@@ -144,26 +164,55 @@ namespace BadmintonPoseTracking
         /// <summary>
         /// Compare a player capture against a reference swing.
         /// Returns a SwingScore — the player capture is not modified.
+        /// When AutoTrim is true, idle padding is stripped from the
+        /// player capture before DTW so only the active movement is scored.
         /// </summary>
         public SwingScore Compare(PoseCapture player, PoseCapture reference)
         {
-            return CompareFrameArrays(player.Frames, player.FrameCount,
-                                      reference.Frames, reference.FrameCount);
+            PoseCapture trimmed = AutoTrim
+                ? SwingTrimmer.Trim(player, reference.DurationSeconds,
+                                    reference.CaptureRateFps, _jointIds)
+                : player;
+
+            SwingScore score = CompareFrameArrays(trimmed.Frames, trimmed.FrameCount,
+                                                   reference.Frames, reference.FrameCount);
+
+            if (AutoTrim && trimmed != player)
+            {
+                score.OriginalFrameCount = player.FrameCount;
+                score.TrimmedFrameCount  = trimmed.FrameCount;
+            }
+
+            return score;
         }
 
         /// <summary>Overload accepting a ReferencePoseSequence directly.</summary>
         public SwingScore Compare(PoseCapture player, ReferencePoseSequence reference)
         {
+            float refDuration = reference.DurationSeconds;
+            float refFps      = reference.captureRateFps > 0
+                ? reference.captureRateFps : 30f;
+
+            PoseCapture trimmed = AutoTrim
+                ? SwingTrimmer.Trim(player, refDuration, refFps, _jointIds)
+                : player;
+
             var refFrames = reference.frames;
             int refCount  = refFrames.Count;
 
-            // Materialise into a temp array so inner loop accesses are O(1)
-            // Only allocates once per comparison — tiny compared to DTW work.
             var refArr = new PoseFrame[refCount];
             for (int i = 0; i < refCount; i++) refArr[i] = refFrames[i];
 
-            return CompareFrameArrays(player.Frames, player.FrameCount,
-                                      refArr, refCount);
+            SwingScore score = CompareFrameArrays(trimmed.Frames, trimmed.FrameCount,
+                                                   refArr, refCount);
+
+            if (AutoTrim && trimmed != player)
+            {
+                score.OriginalFrameCount = player.FrameCount;
+                score.TrimmedFrameCount  = trimmed.FrameCount;
+            }
+
+            return score;
         }
 
         // ── Core DTW ──────────────────────────────────────────────────────
@@ -178,7 +227,13 @@ namespace BadmintonPoseTracking
             n = Mathf.Min(n, MaxFrames);
             m = Mathf.Min(m, MaxFrames);
 
-            int band = Mathf.Max(2, Mathf.RoundToInt(Mathf.Max(n, m) * BandFraction));
+            // Band must be at least |n−m| so the path can reach from (0,0) to (n-1,m-1).
+            // Without this, sequences of different lengths produce unreachable endpoints.
+            int lengthDiff = Mathf.Abs(n - m);
+            int band = Mathf.Max(lengthDiff,
+                           Mathf.Max(2, Mathf.RoundToInt(Mathf.Max(n, m) * BandFraction)));
+
+            Debug.Log($"[SwingMatcher] DTW  n={n}  m={m}  band={band}  (diff={lengthDiff})");
 
             // Reset per-joint deviation accumulators
             for (int i = 0; i < _numJoints; i++)

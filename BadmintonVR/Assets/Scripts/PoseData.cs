@@ -209,4 +209,15 @@ namespace BadmintonPoseTracking
         public List<string> deviatingJoints = new List<string>();
         public string       feedbackMessage;
     }
+    
+    [Serializable]
+    public class ScoringJointEntry
+    {
+        public TrackedJoint joint;
+        [Range(0.1f, 5f)]
+        public float weight = 1f;
+
+        public ScoringJointEntry() { }
+        public ScoringJointEntry(TrackedJoint j, float w) { joint = j; weight = w; }
+    }
 }
