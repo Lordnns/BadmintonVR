@@ -6,6 +6,9 @@ public class Gamemode : MonoBehaviour
     [Header("Difficulté")] 
     public int difficultyLevel = 1;
     
+    [Header("Score")]
+    [Tooltip("Score du joueur")]
+    public int playerScore = 0;
     
     void Start()
     {

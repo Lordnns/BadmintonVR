@@ -13,6 +13,10 @@ public class ShuttlecockScript : MonoBehaviour
     public float angularDamping = 3f;
 
     private Rigidbody rb;
+    
+    [Tooltip("A touché le sol")]
+    public bool hasTouchedGround = false;
+    
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -47,5 +51,13 @@ public class ShuttlecockScript : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
         Quaternion targetRotation = Quaternion.LookRotation(rb.linearVelocity.normalized);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.fixedDeltaTime * 8f);
+    }
+    
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Ground"))
+        {
+            hasTouchedGround = true;
+        }
     }
 }
