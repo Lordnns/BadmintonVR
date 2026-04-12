@@ -8,6 +8,7 @@ TagManager:
   - Volant
   - ShuttlecockHead
   - RacketHead
+  - Ground
   layers:
   - Default
   - TransparentFX

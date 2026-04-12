@@ -23,6 +23,7 @@ public class TargetZone : MonoBehaviour
 
 
     public GameObject spawner;
+    public GameObject gamemode;
     
     void OnValidate()
     {
@@ -52,9 +53,39 @@ public class TargetZone : MonoBehaviour
         transform.localScale = new Vector3(zoneRadius, transform.localScale.y, zoneRadius);
     }
     
+    
+    // A TESTER
     void OnTriggerEnter(Collider other)
     {
+        if (active && other.CompareTag("Volant"))
+        {
+            if (!other.GetComponent<ShuttlecockScript>().hasTouchedGround)
+            {
+                active = false; 
+                if (meshRenderer != null)
+                {
+                    meshRenderer.material.SetColor(colorPropertyName, successColor);
+                }
+                
+                // Calculate the distance between the center of the target zone and the center of the collider
+                Vector3 centerPos = new Vector3(transform.position.x, 0, transform.position.z);
+                Vector3 impactPos = new Vector3(other.transform.position.x, 0, other.transform.position.z);
+                
+                float distance = Vector3.Distance(centerPos, impactPos);
+                float actualRadius = 0.5f * zoneRadius;
+                float precision = 1f - Mathf.Clamp01(distance / actualRadius);
+            
+                int score = Mathf.RoundToInt(Mathf.Lerp(10f, 100f, precision));
+                gamemode.GetComponent<Gamemode>().playerScore += score;
+                Debug.Log("Score: " + score);
+                
+                spawner.GetComponent<RandomTargetZoneSpawner>().spawnNewZone();
+                Destroy(other.gameObject);
+                OnTargetReached?.Invoke();
 
+                StartCoroutine(DestroyItself());
+            }
+        }
     }
 
     private IEnumerator DestroyItself()
@@ -63,7 +94,7 @@ public class TargetZone : MonoBehaviour
         Destroy(this.gameObject);
     }
 
-    void OnCollisionEnter(Collision collision)
+    /* void OnCollisionEnter(Collision collision)
     {
         if (active)
         {
@@ -89,4 +120,5 @@ public class TargetZone : MonoBehaviour
             Debug.DrawRay(contact.point, contact.normal, Color.white);
         }
     }
+    */
 }
