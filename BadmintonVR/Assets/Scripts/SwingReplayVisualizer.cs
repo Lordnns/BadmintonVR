@@ -316,7 +316,7 @@ namespace BadmintonPoseTracking
             return mat;
         }
 
-        private static string SwingPath(string name)
+        public static string SwingPath(string name)
         {
             foreach (char c in Path.GetInvalidFileNameChars())
                 name = name.Replace(c, '_');

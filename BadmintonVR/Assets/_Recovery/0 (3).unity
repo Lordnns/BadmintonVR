@@ -4911,17 +4911,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.65589964, y: 0.09999995, z: 0.02399993}
   m_Center: {x: -1.801084, y: 0.049999975, z: -1.3750999}
---- !u!114 &861527390 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 49630065298179074, guid: 72e4f99dadd3bf04e8031f7293463ac0, type: 3}
-  m_PrefabInstance: {fileID: 2106075660}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4893c3e932fe38a49b3f0c3ec03b62b0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LauncherMovement
 --- !u!65 &867504936
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -20895,10 +20884,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
-      propertyPath: rails
-      value: 
-      objectReference: {fileID: 861527390}
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: launcher
       value: 
