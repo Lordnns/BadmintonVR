@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 [RequireComponent (typeof(Rigidbody))]
@@ -58,8 +59,13 @@ public class ShuttlecockScript : MonoBehaviour
     {
         if (other.CompareTag("Ground"))
         {
-            Debug.Log("Touched Ground");
+            //Debug.Log("Touched Ground");
             hasTouchedGround = true;
         }
+    }
+
+    private void OnCollisionEnter(Collision other)
+    {
+        //Debug.Log($"[Shuttlecock] hit object named: {other.gameObject.name} with Tag: {other.gameObject.tag}");
     }
 }

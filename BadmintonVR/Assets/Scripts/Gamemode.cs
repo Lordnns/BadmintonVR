@@ -10,8 +10,14 @@ public class Gamemode : MonoBehaviour
     [Tooltip("Score du joueur")]
     public int playerScore = 0;
     
+    [Header("Launcher")]
+    public ShuttlecockLauncher launcher;
+
+    public float launchInterval = 5;
+    
     void Start()
     {
+        InvokeRepeating("LaunchShuttleCock", 0, launchInterval);
         
     }
 
@@ -19,6 +25,11 @@ public class Gamemode : MonoBehaviour
     void Update()
     {
         
+    }
+
+    void LaunchShuttleCock()
+    {
+        launcher.LaunchShuttlecock();
     }
 
 
