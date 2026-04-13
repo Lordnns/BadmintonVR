@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using BadmintonPoseTracking;
@@ -6,7 +7,7 @@ using System.IO;
 using UnityEngine.InputSystem;
 
 public class Gamemode : MonoBehaviour
-{   
+{
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     [Header("Difficulté")] 
     public int difficultyLevel = 1;
@@ -27,22 +28,81 @@ public class Gamemode : MonoBehaviour
     public float launchInterval = 2f;
     
     private int currentSwingIndex = 0;
-    public List<string> swings = new List<string>();
-    
+    [System.Serializable]
+    public class SwingData
+    {
+        public string name;
+        public Transform relativePos;
+    }
+    [SerializeField] 
+    public List<SwingData> swingsAndRelativePos = new List<SwingData>();
     public Transform shuttlecockTarget;
     
     [Header("Pose previewer")]
     public SwingCoordinator coordinator;
+    
+    // Input actions & UI
+    [Header("XRI Input Actions")]
+    public InputActionReference continueNextSwingAction;
+    public InputActionReference skipRoundAction;
+    public InputActionReference restartAction;
 
+    public Action continueNextSwingBtn;
+    public Action skipRoundBtn;
+    
+    
     private bool isLeftHanded;
     
+    void OnEnable()
+    {
+        coordinator.OnSwingScored += OnPoseScored;
+        if (continueNextSwingAction != null)
+        {
+            continueNextSwingAction.action.Enable();
+            continueNextSwingAction.action.performed += OnContinueNextRound;
+        }
+
+        if (skipRoundAction != null)
+        {
+            skipRoundAction.action.Enable();
+            skipRoundAction.action.performed += OnSkipRound;
+        }
+
+        if (restartAction != null)
+        {
+            restartAction.action.Enable();
+            restartAction.action.performed += OnRestart;
+        }
+
+    }
+
+    public void OnContinueNextRound(InputAction.CallbackContext ctx)
+    {
+        StartLaunch();
+    }
+
+    public void OnSkipRound(InputAction.CallbackContext ctx)
+    {
+        
+    }
+
+    public void OnRestart(InputAction.CallbackContext ctx)
+    {
+        PrepareForNextRound();
+    }
+
+    void OnDisable()
+    {
+        coordinator.OnSwingScored -= OnPoseScored;
+        continueNextSwingAction.action.performed -= OnContinueNextRound;
+        skipRoundAction.action.performed -= OnSkipRound;
+        restartAction.action.performed -= OnRestart;
+    }
     
     void Start()
     {
         isLeftHanded = GameSettings.isLeftHanded;
-        Debug.Log("GAMEMODE :" + isLeftHanded);
-        coordinator.OnSwingScored += OnPoseScored;
-        InvokeRepeating("SetLauncherPosition", 2f, launchInterval);
+        SetLauncherPosition(0);
     }
 
     private void SetLauncherPosition(float alpha)
@@ -65,64 +125,32 @@ public class Gamemode : MonoBehaviour
         poseScore = 0;
         
         // Start the launch routine
-        coordinator.ShowReferencePreview(swings[currentSwingIndex]);
-
-        string path = File.ReadAllText(SwingReplayVisualizer.SwingPath(swings[currentSwingIndex]));
-        var dto = JsonUtility.FromJson<SwingDto>(path);
-        if (dto?.frames == null || dto.frames.Length == 0)
-        {
-            Debug.LogWarning($"[SwingReplayVisualizer] Empty or corrupt: {path}");
-            return;
-        }
-        StartCoroutine(DelayForReferencePreview(dto.durationSeconds + 1.0f));
-
-    }
-
-    public IEnumerator DelayForReferencePreview(float duration)  
-    {
-        yield return new WaitForSeconds(duration);
-        coordinator.HideReferencePreview();
-        StartLaunch();
-
+        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
     }
 
     void StartLaunch()
     {
-        launcher.target.position = shuttlecockTarget.transform.position;
+        coordinator.HideReferencePreview();
+        launcher.target.position = swingsAndRelativePos[currentSwingIndex].relativePos.position;
         launcher.LaunchShuttlecock();
-        coordinator.OnLaunch(swings[currentSwingIndex]);
+        coordinator.OnLaunch(swingsAndRelativePos[currentSwingIndex].name);
     }
     
     public void OnShuttlecockLanded()
     {
         coordinator.OnShuttlecockLanded();
     }
-    
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
-
-    void LaunchShuttleCock()
-    {
-        launcher.LaunchShuttlecock();
-    }
-
 
     public void OnGameEnd()
     {
         
     }
-
-
-
-
+    
     public void ShowScoreUI()
     {
         // Show score UI
         coordinator.ShowReplay();
-        coordinator.ShowReferencePreview(swings[currentSwingIndex]);
+        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
     }
 
     public void PrepareForNextRound()
@@ -156,3 +184,4 @@ public class Gamemode : MonoBehaviour
         return true;
     }
 }
+
