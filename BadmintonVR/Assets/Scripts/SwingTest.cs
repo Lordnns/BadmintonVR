@@ -136,7 +136,7 @@ namespace BadmintonPoseTracking
                 _coord.HideReplay();
             }
         }
-
+        
         private void LogScore(SwingScore score)
         {
             string trim = score.OriginalFrameCount > 0

@@ -4305,6 +4305,58 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.01999998, y: 0.7715849, z: 0.15999997}
   m_Center: {x: 1.203695, y: 0.60779244, z: -0.9539738}
+--- !u!1 &704775867
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 704775869}
+  - component: {fileID: 704775868}
+  m_Layer: 0
+  m_Name: Preview
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &704775868
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 704775867}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d978b0c0f2b4686933981fa6108fba1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BadmintonPoseTracking.SwingReplayVisualizer
+  swingName: smash
+  autoPlayOnStart: 0
+  playbackSpeed: 1
+  loop: 1
+  jointRadius: 0.03
+  boneRadius: 0.012
+  jointColor: {r: 0.2, g: 0.8, b: 1, a: 0.85}
+  boneColor: {r: 0.2, g: 0.6, b: 1, a: 0.4}
+--- !u!4 &704775869
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 704775867}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8.05997, y: 0.1, z: -8.69757}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &729044680
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -6250,6 +6302,58 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1029226759}
   m_Mesh: {fileID: 8120142844445572577, guid: f3cdd01f1bfca314e9b01e448a51ae6d, type: 3}
+--- !u!1 &1031113216
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1031113218}
+  - component: {fileID: 1031113217}
+  m_Layer: 0
+  m_Name: AfterSwing
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1031113217
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031113216}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d978b0c0f2b4686933981fa6108fba1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BadmintonPoseTracking.SwingReplayVisualizer
+  swingName: smash
+  autoPlayOnStart: 0
+  playbackSpeed: 1
+  loop: 1
+  jointRadius: 0.03
+  boneRadius: 0.012
+  jointColor: {r: 0.2, g: 0.8, b: 1, a: 0.85}
+  boneColor: {r: 0.2, g: 0.6, b: 1, a: 0.4}
+--- !u!4 &1031113218
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031113216}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8.05994, y: 0.1, z: -8.69756}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1040091892 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 5374201810882297581, guid: 2b1355e858f2c8f4b9b42111b1022f21, type: 3}
@@ -19291,8 +19395,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BadmintonPoseTracking.SwingCoordinator
   recorder: {fileID: 1833378972}
-  playerVisualizer: {fileID: 0}
-  referenceVisualizer: {fileID: 0}
+  playerVisualizer: {fileID: 1031113217}
+  referenceVisualizer: {fileID: 704775868}
   playerJointColor: {r: 0.2, g: 1, b: 0.4, a: 0.85}
   playerBoneColor: {r: 0.2, g: 0.8, b: 0.4, a: 0.4}
   referenceJointColor: {r: 0.2, g: 0.8, b: 1, a: 0.85}
@@ -21004,3 +21108,5 @@ SceneRoots:
   - {fileID: 916311438}
   - {fileID: 367141757}
   - {fileID: 2097550559}
+  - {fileID: 704775869}
+  - {fileID: 1031113218}
