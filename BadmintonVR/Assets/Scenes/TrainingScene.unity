@@ -740,6 +740,28 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 1276034823}
   m_SourcePrefab: {fileID: 100100000, guid: 2b1355e858f2c8f4b9b42111b1022f21, type: 3}
+--- !u!114 &154803463 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 706475362655999381, guid: 2b1355e858f2c8f4b9b42111b1022f21, type: 3}
+  m_PrefabInstance: {fileID: 154803462}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25a07ef133a37d140a87cdf1f1c75fdf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &154803464 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6497123366097640669, guid: 2b1355e858f2c8f4b9b42111b1022f21, type: 3}
+  m_PrefabInstance: {fileID: 154803462}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25a07ef133a37d140a87cdf1f1c75fdf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &180405504
 GameObject:
   m_ObjectHideFlags: 0
@@ -11638,6 +11660,17 @@ MonoBehaviour:
   minSweetSpotMultiplier: 0.4
   radiusWidth: 1.56
   radiusHeight: 0.5
+--- !u!114 &1767601525 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: -1065105753763042639, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
+  m_PrefabInstance: {fileID: 1767601522}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1070831701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ad34abafad169848a38072baa96cdb2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable
 --- !u!64 &1767601527 stripped
 MeshCollider:
   m_CorrespondingSourceObject: {fileID: 4112684273817050561, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
@@ -20143,6 +20176,53 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1 &1971625460
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1971625462}
+  - component: {fileID: 1971625461}
+  m_Layer: 0
+  m_Name: AutoGrab
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1971625461
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1971625460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ffc7188f2bb49efb60476004dcbe041, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AutoGrabXR
+  racketInteractable: {fileID: 1767601525}
+  leftHandInteractor: {fileID: 154803464}
+  rightHandInteractor: {fileID: 154803463}
+--- !u!4 &1971625462
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1971625460}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 6.65456, y: 0.1, z: -8.26076}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1985857049 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -6956205722481018397, guid: f3cdd01f1bfca314e9b01e448a51ae6d, type: 3}
@@ -21107,6 +21187,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 861527390}
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+      propertyPath: timer
+      value: 
+      objectReference: {fileID: 908218899}
+    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: launcher
       value: 
       objectReference: {fileID: 1327623083}
@@ -21243,3 +21327,4 @@ SceneRoots:
   - {fileID: 1173387971}
   - {fileID: 704775869}
   - {fileID: 1031113218}
+  - {fileID: 1971625462}

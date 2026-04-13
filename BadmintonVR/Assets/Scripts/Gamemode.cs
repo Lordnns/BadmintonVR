@@ -56,6 +56,7 @@ public class Gamemode : MonoBehaviour
 
 
     [Tooltip("Timer")] private float startTime;
+    public GameTimer timer;
 
     void OnEnable()
     {
@@ -155,6 +156,15 @@ public class Gamemode : MonoBehaviour
     {
         Debug.Log("Time out gammeode");
         currentSwingIndex++;
+        if (currentSwingIndex >= swingsAndRelativePos.Count)
+        {
+            EndGameProcess();
+        }
+
+        if (timer != null)
+        {
+            timer.ResetTimer();
+        }
         PrepareForNextRound();
     }
 
@@ -171,6 +181,13 @@ public class Gamemode : MonoBehaviour
         PreSwing();
     }
 
+    private void EndGameProcess()
+    {
+        // COMPLETED CHALLENGE LOGIC
+        GameSettings.duration = Time.time - startTime;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
+    }
+
     // Gather the precision scores and pose scores from target zones and coordinator
     private void OnPoseScored(SwingScore score)
     {
@@ -183,9 +200,7 @@ public class Gamemode : MonoBehaviour
             currentSwingIndex++;
             if (swingsAndRelativePos.Count < currentSwingIndex)
             {
-                // COMPLETED CHALLENGE LOGIC
-                GameSettings.duration = Time.time - startTime;
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
+                EndGameProcess();
             }
         }
     }

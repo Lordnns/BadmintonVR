@@ -6,11 +6,17 @@ using UnityEngine.Events;
 public class GameTimer : MonoBehaviour
 {
     public float timeLeft = 60f; // Starts with 60 seconds
+    private float initialDuration;
     public TMP_Text timerText;
     private bool isTimerRunning = true;
     
     
     public UnityEvent OnTimeOut;
+
+    void Start()
+    {
+        initialDuration = timeLeft;
+    }
     
     void Update()
     {
@@ -32,5 +38,11 @@ public class GameTimer : MonoBehaviour
     {
         int seconds = Mathf.CeilToInt(timeLeft);
         timerText.text = "Time: " + seconds.ToString();
+    }
+
+    public void ResetTimer()
+    {
+        timeLeft = initialDuration;
+        isTimerRunning = true;
     }
 }

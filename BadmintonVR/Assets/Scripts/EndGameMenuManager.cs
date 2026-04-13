@@ -21,6 +21,7 @@ public class EndGameMenuManager : MonoBehaviour
     public void Start()
     {
         SetTimeText();
+        SetScoreText();
     }
     
     public void QuitGame()
