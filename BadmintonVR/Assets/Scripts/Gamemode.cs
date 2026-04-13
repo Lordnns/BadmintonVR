@@ -38,8 +38,8 @@ public class Gamemode : MonoBehaviour
 
     [SerializeField] public List<SwingData> swingsAndRelativePosRightHand = new List<SwingData>();
     [SerializeField] public List<SwingData> swingsAndRelativePosLeftHand = new List<SwingData>();
-    
-    public List<SwingData> swingsAndRelativePos = new List<SwingData>();
+
+    List<SwingData> swingsAndRelativePos;
     
     public Transform shuttlecockTarget;
 
@@ -129,11 +129,17 @@ public class Gamemode : MonoBehaviour
         poseScore = 0;
 
         // Start the launch routine
+        Debug.Log("swings and relative pos :" + swingsAndRelativePos.Count.ToString());
+        Debug.Log("currentSwingIndex :" +  currentSwingIndex.ToString());
         coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
     }
 
     void StartLaunch()
     {
+        if (scores.Count > 0)
+        {
+            scores.Dequeue();
+        }
         coordinator.HideReferencePreview();
         launcher.target.position = swingsAndRelativePos[currentSwingIndex].relativePos.position;
         launcher.LaunchShuttlecock();
@@ -192,6 +198,10 @@ public class Gamemode : MonoBehaviour
     // Check if last three scores are above threshold
     private bool CheckLastThreeScores()
     {
+        if (scores.Count < 3)
+        {
+            return false;
+        }
         foreach (var score in scores)
         {
             if (score < scoreThreshold)

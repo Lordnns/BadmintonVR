@@ -21151,6 +21151,10 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+      propertyPath: swingsAndRelativePosRightHand.Array.size
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: swingsAndRelativePos.Array.data[0].relativePos
       value: 
       objectReference: {fileID: 1705961058}
@@ -21175,6 +21179,18 @@ PrefabInstance:
       value: l_revert_05
       objectReference: {fileID: 0}
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+      propertyPath: swingsAndRelativePosRightHand.Array.data[0].name
+      value: overhead_04
+      objectReference: {fileID: 0}
+    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+      propertyPath: swingsAndRelativePosRightHand.Array.data[1].name
+      value: swing_low_05
+      objectReference: {fileID: 0}
+    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+      propertyPath: swingsAndRelativePosRightHand.Array.data[2].name
+      value: revert_10
+      objectReference: {fileID: 0}
+    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: swingsAndRelativePosLeftHand.Array.data[0].relativePos
       value: 
       objectReference: {fileID: 1702902140}
@@ -21186,6 +21202,18 @@ PrefabInstance:
       propertyPath: swingsAndRelativePosLeftHand.Array.data[2].relativePos
       value: 
       objectReference: {fileID: 1519360882}
+    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+      propertyPath: swingsAndRelativePosRightHand.Array.data[0].relativePos
+      value: 
+      objectReference: {fileID: 1705961058}
+    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+      propertyPath: swingsAndRelativePosRightHand.Array.data[1].relativePos
+      value: 
+      objectReference: {fileID: 300651898}
+    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+      propertyPath: swingsAndRelativePosRightHand.Array.data[2].relativePos
+      value: 
+      objectReference: {fileID: 1531595998}
     - target: {fileID: 7590250141953932523, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: m_Name
       value: Gamemode
