@@ -6,7 +6,7 @@ using System.IO;
 using UnityEngine.InputSystem;
 
 public class Gamemode : MonoBehaviour
-{
+{   
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     [Header("Difficulté")] 
     public int difficultyLevel = 1;
@@ -33,10 +33,14 @@ public class Gamemode : MonoBehaviour
     
     [Header("Pose previewer")]
     public SwingCoordinator coordinator;
+
+    private bool isLeftHanded;
     
     
     void Start()
     {
+        isLeftHanded = GameSettings.isLeftHanded;
+        Debug.Log("GAMEMODE :" + isLeftHanded);
         coordinator.OnSwingScored += OnPoseScored;
         InvokeRepeating("SetLauncherPosition", 2f, launchInterval);
     }
