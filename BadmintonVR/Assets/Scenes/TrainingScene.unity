@@ -5522,7 +5522,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 186115726}
         m_TargetAssemblyTypeName: Gamemode, Assembly-CSharp
-        m_MethodName: OnGameEnd
+        m_MethodName: OnTimeOut
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

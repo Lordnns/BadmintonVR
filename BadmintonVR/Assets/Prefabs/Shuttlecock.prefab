@@ -221,3 +221,18 @@ MonoBehaviour:
   mass: 0.005
   angularDamping: 3
   hasTouchedGround: 0
+  OnShuttlecockLanded:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
+        m_TargetAssemblyTypeName: Gamemode, Assembly-CSharp
+        m_MethodName: OnShuttlecockLanded
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
