@@ -36,7 +36,11 @@ public class Gamemode : MonoBehaviour
         public Transform relativePos;
     }
 
-    [SerializeField] public List<SwingData> swingsAndRelativePos = new List<SwingData>();
+    [SerializeField] public List<SwingData> swingsAndRelativePosRightHand = new List<SwingData>();
+    [SerializeField] public List<SwingData> swingsAndRelativePosLeftHand = new List<SwingData>();
+    
+    public List<SwingData> swingsAndRelativePos = new List<SwingData>();
+    
     public Transform shuttlecockTarget;
 
     [Header("Pose previewer")] public SwingCoordinator coordinator;
@@ -99,6 +103,7 @@ public class Gamemode : MonoBehaviour
 
     void Start()
     {
+        swingsAndRelativePos = isLeftHanded ? swingsAndRelativePosLeftHand : swingsAndRelativePosRightHand;
         startTime = Time.time;
         isLeftHanded = GameSettings.isLeftHanded;
         SetLauncherPosition(0);
@@ -165,11 +170,12 @@ public class Gamemode : MonoBehaviour
     {
         poseScore = score.Score;
         scores.Enqueue(poseScore + precisionScore);
+        playerScore += poseScore + precisionScore;
         if (CheckLastThreeScores())
         {
             scores.Clear();
             currentSwingIndex++;
-            if (swingsAndRelativePos.Count > currentSwingIndex)
+            if (swingsAndRelativePos.Count < currentSwingIndex)
             {
                 // COMPLETED CHALLENGE LOGIC
                 GameSettings.duration = Time.time - startTime;
