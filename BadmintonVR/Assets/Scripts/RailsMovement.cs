@@ -4,25 +4,33 @@ public class RailsMovement : MonoBehaviour
 {
     [Header("Objects")]
     public GameObject launcher;
-    public GameObject rails;
+    public Transform startPoint;
+    public Transform endPoint;
 
     [Header("Parameters")]
+    [Range(-1f, 1f)]
+    public float alpha = 0f;
+    public bool oscillate = false;
     public float oscillationFrequency = 0.1f;
-    public float amplitude = 3f;
-
-    Vector3 startPos;
+    
+    float currentT = 0.5f;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        startPos = launcher.transform.position;
     }
 
     // Update is called once per frame
     void Update()
     {
-        // Oscillate position
-        float oscillation = Mathf.Sin(Time.time * oscillationFrequency * 2f * Mathf.PI) * amplitude;
-        launcher.transform.position = new Vector3(startPos.x, startPos.y, startPos.z + oscillation);
+        float targetT;
+
+        if (oscillate)
+            targetT = (Mathf.Sin(Time.time * oscillationFrequency * 2f * Mathf.PI) + 1f) / 2f;
+        else
+            targetT = (alpha + 1f) / 2f;
+
+        currentT = Mathf.Lerp(currentT, targetT, 0.1f);
+        launcher.transform.position = Vector3.Lerp(startPoint.position, endPoint.position, currentT);
     }
 }
