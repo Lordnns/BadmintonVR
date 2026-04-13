@@ -302,6 +302,59 @@ namespace BadmintonPoseTracking
         // =================================================================
 
         /// <summary>
+        /// Plays the named reference swing on the reference visualizer only.
+        /// Call this before a launch to preview the target move to the player.
+        /// </summary>
+        public void ShowReferencePreview(string swingName)
+        {
+            if (referenceVisualizer == null) return;
+
+            PoseCapture reference = _database.Load(swingName);
+            if (reference == null)
+            {
+                Debug.LogWarning($"[SwingCoordinator] ShowReferencePreview: '{swingName}' not found.");
+                return;
+            }
+
+            referenceVisualizer.SetColors(referenceJointColor, referenceBoneColor);
+            referenceVisualizer.DisplayName = swingName;
+            referenceVisualizer.PlayCapture(reference);
+            Debug.Log($"[SwingCoordinator] Showing reference preview: '{swingName}'");
+        }
+
+        /// <summary>Stops the reference visualizer skeleton.</summary>
+        public void HideReferencePreview()
+        {
+            if (referenceVisualizer != null) referenceVisualizer.Stop();
+        }
+
+        /// <summary>
+        /// Plays only the player's last trimmed capture (no reference skeleton).
+        /// Useful after scoring to let the player review their own form alone.
+        /// </summary>
+        public void ShowPlayerReplay()
+        {
+            if (_lastPlayerCapture == null)
+            {
+                Debug.LogWarning("[SwingCoordinator] No player capture to replay yet.");
+                return;
+            }
+
+            if (playerVisualizer != null)
+            {
+                playerVisualizer.SetColors(playerJointColor, playerBoneColor);
+                playerVisualizer.DisplayName = _activeSwingName;
+                playerVisualizer.PlayCapture(_lastPlayerCapture);
+            }
+        }
+
+        /// <summary>Stops the player replay skeleton.</summary>
+        public void HidePlayerReplay()
+        {
+            if (playerVisualizer != null) playerVisualizer.Stop();
+        }
+
+        /// <summary>
         /// Plays back the last scored swing overlaid with the reference.
         /// Requires playerVisualizer and referenceVisualizer to be assigned.
         /// </summary>
@@ -316,12 +369,14 @@ namespace BadmintonPoseTracking
             if (playerVisualizer != null)
             {
                 playerVisualizer.SetColors(playerJointColor, playerBoneColor);
+                playerVisualizer.DisplayName = $"{_activeSwingName} (you)";
                 playerVisualizer.PlayCapture(_lastPlayerCapture);
             }
 
             if (referenceVisualizer != null)
             {
                 referenceVisualizer.SetColors(referenceJointColor, referenceBoneColor);
+                referenceVisualizer.DisplayName = $"{_activeSwingName} (reference)";
                 referenceVisualizer.PlayCapture(_lastReferenceCapture);
             }
 
@@ -396,7 +451,7 @@ namespace BadmintonPoseTracking
             _lastScore            = score;
 
             // ── Fire events ────────────────────────────────────────────────
-
+            
             OnSwingScored?.Invoke(score);
             onSwingScored?.Invoke(score.Score);
             OnReplayReady?.Invoke(trimmed, reference);

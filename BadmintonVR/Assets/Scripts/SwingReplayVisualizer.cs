@@ -14,6 +14,11 @@ namespace BadmintonPoseTracking
 {
     public sealed class SwingReplayVisualizer : MonoBehaviour
     {
+        [Header("Display")]
+        [Tooltip("Human-readable label for this skeleton — shown in UI or passed to events.\n" +
+                 "Set automatically by SwingCoordinator; override here for standalone use.")]
+        public string displayName = string.Empty;
+
         [Header("Swing")]
         public string swingName = "smash";
 
@@ -82,6 +87,16 @@ namespace BadmintonPoseTracking
 
         // ── Public API ─────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Human-readable label for this skeleton (e.g. "smash_overhead (you)").
+        /// Set by SwingCoordinator automatically; can also be set from game-mode code.
+        /// </summary>
+        public string DisplayName
+        {
+            get => displayName;
+            set => displayName = value;
+        }
+
         /// <summary>True while a playback coroutine is running.</summary>
         public bool IsPlaying => _playCoroutine != null;
 
@@ -114,10 +129,12 @@ namespace BadmintonPoseTracking
 
         /// <summary>
         /// Load and play a swing by name from StreamingAssets/Swings/.
+        /// Also sets DisplayName to the provided name.
         /// </summary>
         public void PlayFromDisk(string name)
         {
-            swingName = name;
+            swingName   = name;
+            displayName = name;
             LoadAndPlay();
         }
 

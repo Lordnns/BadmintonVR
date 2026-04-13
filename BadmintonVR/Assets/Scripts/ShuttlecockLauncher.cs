@@ -15,13 +15,12 @@ public class ShuttlecockLauncher : MonoBehaviour
     public float launch;
 
     [Header("Parameters")]
-    public float launchInterval = 2f;
     public float despawnTime = 10f;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        InvokeRepeating("Launch", 1f, launchInterval);
+        // Time-based auto-launch removed.
+        // Call LaunchShuttlecock() from your game-mode script instead.
     }
 
     void Update()
@@ -39,7 +38,11 @@ public class ShuttlecockLauncher : MonoBehaviour
         rotatingPart.localRotation = Quaternion.Euler(0f, yaw - 90, -pitch);
     }
 
-    void Launch()
+    /// <summary>
+    /// Fire one shuttlecock toward the current target position.
+    /// Call this from your game-mode script after positioning target.
+    /// </summary>
+    public void LaunchShuttlecock()
     {
         GameObject sc = Instantiate(
             shuttlecockPrefab,
