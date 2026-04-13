@@ -10,10 +10,15 @@ public class Gamemode : MonoBehaviour
     [Tooltip("Score du joueur")]
     public int playerScore = 0;
     
+    [Header("Launcher")]
+    [Tooltip("Launcher de volants")]
+    public GameObject launcher;
+    
     void Start()
     {
         
     }
+        
 
     // Update is called once per frame
     void Update()
