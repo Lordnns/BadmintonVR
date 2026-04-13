@@ -4169,7 +4169,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &704775868
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4911,17 +4911,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.65589964, y: 0.09999995, z: 0.02399993}
   m_Center: {x: -1.801084, y: 0.049999975, z: -1.3750999}
---- !u!114 &861527390 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 49630065298179074, guid: 72e4f99dadd3bf04e8031f7293463ac0, type: 3}
-  m_PrefabInstance: {fileID: 2106075660}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4893c3e932fe38a49b3f0c3ec03b62b0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LauncherMovement
 --- !u!65 &867504936
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -6117,7 +6106,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1031113217
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6302,29 +6291,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1070066795}
   m_Mesh: {fileID: 8120142844445572577, guid: f3cdd01f1bfca314e9b01e448a51ae6d, type: 3}
---- !u!1 &1070831701 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 6513168477331667616, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-  m_PrefabInstance: {fileID: 1767601522}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1070831711
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1070831701}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f53380c679b34d3bbb7731eb0d812724, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RacketSweetSpotOval
-  stringPlane: 1
-  stringsCollider: {fileID: 1767601527}
-  maxBounceForce: 2
-  minBounceForce: 1
-  radiusWidth: 1.56
-  radiusHeight: 0.5
 --- !u!65 &1071599260
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -11305,22 +11271,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 393507987969796309, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -0.01
-      objectReference: {fileID: 0}
-    - target: {fileID: 393507987969796309, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -3.07
-      objectReference: {fileID: 0}
-    - target: {fileID: 1046126592230196614, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4112684273817050561, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 5848131461442461722, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
       propertyPath: m_LocalPosition.x
       value: 8.885054
@@ -11365,54 +11315,15 @@ PrefabInstance:
       propertyPath: m_Name
       value: Racket1
       objectReference: {fileID: 0}
-    - target: {fileID: 8763992842561804799, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 8830291394072663748, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
       propertyPath: m_Interpolate
       value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects:
-    - {fileID: 8772864266819515940, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
+    m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 6513168477331667616, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1070831711}
-    - targetCorrespondingSourceObject: {fileID: 1476362598406015443, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1767601524}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
---- !u!1 &1767601523 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 1476362598406015443, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-  m_PrefabInstance: {fileID: 1767601522}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1767601524
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1767601523}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f53380c679b34d3bbb7731eb0d812724, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RacketSweetSpotOval
-  stringPlane: 1
-  stringsCollider: {fileID: 0}
-  maxBounceForce: 100
-  minBounceForce: 50
-  radiusWidth: 1.56
-  radiusHeight: 0.5
---- !u!64 &1767601527 stripped
-MeshCollider:
-  m_CorrespondingSourceObject: {fileID: 4112684273817050561, guid: dd195a614f7eafc46885493a44b61fab, type: 3}
-  m_PrefabInstance: {fileID: 1767601522}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1795992731 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -71869768496401595, guid: f3cdd01f1bfca314e9b01e448a51ae6d, type: 3}
@@ -19270,7 +19181,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1833378971
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20703,17 +20614,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 72e4f99dadd3bf04e8031f7293463ac0, type: 3}
---- !u!114 &2120662481 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7420981160017287106, guid: 72e4f99dadd3bf04e8031f7293463ac0, type: 3}
-  m_PrefabInstance: {fileID: 2106075660}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 147ccb72d1206dd4caf618fb5642cebf, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
 --- !u!4 &2123311275 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4693154895525561147, guid: f3cdd01f1bfca314e9b01e448a51ae6d, type: 3}
@@ -20927,10 +20827,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: MetaBodyTracker
       objectReference: {fileID: 0}
-    - target: {fileID: 7926665916048436002, guid: 1da1bb3df25dfd84bbc8a12d2f169ace, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 9040861272315622097, guid: 1da1bb3df25dfd84bbc8a12d2f169ace, type: 3}
       propertyPath: _providedSkeletonType
       value: 0
@@ -20988,10 +20884,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
-      propertyPath: rails
-      value: 
-      objectReference: {fileID: 861527390}
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: launcher
       value: 

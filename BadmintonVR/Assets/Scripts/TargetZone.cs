@@ -15,7 +15,7 @@ public class TargetZone : MonoBehaviour
     public Color successColor = Color.green;
     public Color baseColor = Color.red;
     
-    public UnityEvent OnTargetReached;
+    public UnityEvent<float> OnTargetReached;
     
     private string colorPropertyName = "_ZoneColor";
     private Renderer meshRenderer;
@@ -80,7 +80,7 @@ public class TargetZone : MonoBehaviour
                 float precision = 1f - Mathf.Clamp01(distance / actualRadius);
             
                 int score = Mathf.RoundToInt(Mathf.Lerp(10f, 100f, precision));
-                gamemode.GetComponent<Gamemode>().playerScore += score;
+                gamemode.GetComponent<Gamemode>().OnTargetZoneReached(score);
                 
                 // Spawn a floating text above the trigger zone to make it clearer which score you got for that shot
                 
@@ -99,7 +99,6 @@ public class TargetZone : MonoBehaviour
                 
                 spawner.GetComponent<RandomTargetZoneSpawner>().spawnNewZone();
                 Destroy(other.gameObject);
-                OnTargetReached?.Invoke();
 
                 StartCoroutine(DestroyItself());
             }

@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Events;
 
 [RequireComponent (typeof(Rigidbody))]
 public class ShuttlecockScript : MonoBehaviour
@@ -16,9 +17,14 @@ public class ShuttlecockScript : MonoBehaviour
 
     private Rigidbody rb;
     
+    [Header("Sol")]
     [Tooltip("A touché le sol")]
     public bool hasTouchedGround = false;
 
+    public UnityEvent OnShuttlecockLanded;
+
+    
+    
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -57,10 +63,10 @@ public class ShuttlecockScript : MonoBehaviour
     
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Ground"))
+        if (other.CompareTag("Ground") || other.GetComponent<TargetZone>())
         {
-            //Debug.Log("Touched Ground");
             hasTouchedGround = true;
+            OnShuttlecockLanded?.Invoke();
         }
     }
 
