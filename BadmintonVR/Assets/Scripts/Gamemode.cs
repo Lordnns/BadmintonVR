@@ -100,6 +100,11 @@ public class Gamemode : MonoBehaviour
         
     }
 
+    void LaunchShuttleCock()
+    {
+        launcher.LaunchShuttlecock();
+    }
+
 
     public void OnGameEnd()
     {

@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40fa7d1319883134592584941fe698a3, type: 3}
   m_Name: ShuttlecockData
   m_EditorClassIdentifier: Assembly-CSharp::ShuttlecockData
-  dragCoefficient: 0.001
+  dragCoefficient: 0.005
   initialSpeed: 12
   shuttlecockMass: 0.005

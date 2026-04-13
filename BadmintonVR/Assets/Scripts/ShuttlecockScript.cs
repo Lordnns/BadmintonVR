@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -47,7 +48,7 @@ public class ShuttlecockScript : MonoBehaviour
         if (speed < 1f) return;
 
         // Drag proportional to speed
-        Vector3 drag = data.dragCoefficient * speed * mass * -velocity.normalized;
+        Vector3 drag = data.dragCoefficient * speed * speed * mass * -velocity.normalized;
         rb.AddForce(drag, ForceMode.Force);
     }
 
@@ -67,5 +68,10 @@ public class ShuttlecockScript : MonoBehaviour
             hasTouchedGround = true;
             OnShuttlecockLanded?.Invoke();
         }
+    }
+
+    private void OnCollisionEnter(Collision other)
+    {
+        //Debug.Log($"[Shuttlecock] hit object named: {other.gameObject.name} with Tag: {other.gameObject.tag}");
     }
 }
