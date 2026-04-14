@@ -21,6 +21,7 @@ public class ShuttlecockLauncher : MonoBehaviour
     {
         // Time-based auto-launch removed.
         // Call LaunchShuttlecock() from your game-mode script instead.
+        // InvokeRepeating("LaunchShuttlecock", 1f, 1f);
     }
 
     void Update()
@@ -89,13 +90,20 @@ public class ShuttlecockLauncher : MonoBehaviour
     float EvalY(float speed, float pitchDeg, float X, float Y, float K, float g)
     {
         float rad = pitchDeg * Mathf.Deg2Rad;
-        float vx0 = speed * Mathf.Sin(rad);
-        float vy0 = speed * Mathf.Cos(rad);
-        if (vx0 < 0.0001f) return float.NegativeInfinity;
-        float u = K * X / vx0;
-        if (u >= 1f) return float.NegativeInfinity;
-        return (g / (K * K)) * Mathf.Log(1f - u)
-             + (vy0 / K + g / (K * K)) * u
-             - Y;
+        float vx = speed * Mathf.Sin(rad);
+        float vy = speed * Mathf.Cos(rad);
+        float x = 0f, y = 0f;
+        float dt = Time.fixedDeltaTime;
+
+        for (int i = 0; i < 2000; i++)
+        {
+            float spd = Mathf.Sqrt(vx * vx + vy * vy);
+            vx -= K * spd * vx * dt;
+            vy -= (g + K * spd * vy) * dt;
+            x += vx * dt;
+            y += vy * dt;
+            if (x >= X) return y - Y;
+        }
+        return float.NegativeInfinity;
     }
 }
