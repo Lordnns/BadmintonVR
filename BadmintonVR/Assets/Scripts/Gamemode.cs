@@ -212,7 +212,7 @@ public class Gamemode : MonoBehaviour
         poseScore = score.Score;
 
         // Combined score for this attempt
-        float roundScore = (poseScore + precisionScore) / 2f;
+        float roundScore = precisionScore;
 
         // Push into circular buffer — keep last 3 only
         scores.Enqueue(roundScore);
