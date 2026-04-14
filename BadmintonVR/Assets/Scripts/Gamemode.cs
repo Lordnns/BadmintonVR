@@ -28,7 +28,6 @@ public class Gamemode : MonoBehaviour
     public ShuttlecockLauncher launcher;
 
     public RailsMovement rails;
-    public float launchInterval = 2f;
 
     private int currentSwingIndex = 0;
 
@@ -135,9 +134,9 @@ public class Gamemode : MonoBehaviour
 
     void Start()
     {
+        isLeftHanded = GameSettings.isLeftHanded;
         swingsAndRelativePos = isLeftHanded ? swingsAndRelativePosLeftHand : swingsAndRelativePosRightHand;
         startTime = Time.time;
-        isLeftHanded = GameSettings.isLeftHanded;
         SetLauncherPosition(0);
     }
 
@@ -145,7 +144,6 @@ public class Gamemode : MonoBehaviour
     {
         rails.alpha = alpha;
         StartCoroutine(DelayForLauncherPosition(1.0f));
-        
     }
 
     public IEnumerator DelayForLauncherPosition(float duration)
