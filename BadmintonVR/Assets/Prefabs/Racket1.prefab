@@ -986,8 +986,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RacketScript
   WhooshClip: {fileID: 8300000, guid: e77196f46148ab64aa26c14979f90592, type: 3}
   HitClip: {fileID: 8300000, guid: 333c91686c801224fa3e296321428f62, type: 3}
-  speedThreshold: 8
-  maxSpeed: 16
+  speedThreshold: 20
+  maxSpeed: 20
   minVolume: 0.2
   maxVolume: 1
   minPitch: 0.5

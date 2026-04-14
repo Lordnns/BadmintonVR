@@ -145,6 +145,7 @@ public class Gamemode : MonoBehaviour
     {
         rails.alpha = alpha;
         StartCoroutine(DelayForLauncherPosition(1.0f));
+        
     }
 
     public IEnumerator DelayForLauncherPosition(float duration)
@@ -173,10 +174,18 @@ public class Gamemode : MonoBehaviour
         ui?.Hide();
         coordinator.HideReferencePreview();
         launcher.target.position = swingsAndRelativePos[currentSwingIndex].relativePos.position;
+
+        StartCoroutine(Delay(0.03f));
+    }
+
+
+    public IEnumerator Delay(float duration)
+    {
+        yield return new WaitForSeconds(duration);
         launcher.LaunchShuttlecock();
         coordinator.OnLaunch(swingsAndRelativePos[currentSwingIndex].name);
     }
-
+    
     public void OnShuttlecockLanded()
     {
         coordinator.OnShuttlecockLanded();

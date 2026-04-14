@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 275497361084234344}
   - component: {fileID: 2194767288898856442}
   - component: {fileID: 2173732478676137851}
+  - component: {fileID: 5913725166554242349}
   m_Layer: 0
   m_Name: TargetZone
   m_TagString: Untagged
@@ -30,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 7.41109, y: 0.1, z: -8.84499}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 0.5, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -109,12 +110,12 @@ CapsuleCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 1
   m_ProvidesContacts: 1
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 2
   m_Radius: 0.5000001
-  m_Height: 1
+  m_Height: 2
   m_Direction: 1
-  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000011920929}
 --- !u!114 &2173732478676137851
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -127,7 +128,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21f343c43da2f4a438f947df31efcb6a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TargetZone
-  zoneRadius: 1
+  zoneRadius: 2
   successColor: {r: 0, g: 1, b: 0, a: 1}
   baseColor: {r: 1, g: 0, b: 0, a: 1}
   OnTargetReached:
@@ -137,3 +138,25 @@ MonoBehaviour:
   gamemode: {fileID: 0}
   floatingScorePrefab: {fileID: 1573316893190104432, guid: 9b0cdc0add08c0f48bfd08b80e15a79a, type: 3}
   textSpawnHeight: 1.5
+--- !u!64 &5913725166554242349
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6134286265598904581}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 1
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 10206, guid: 0000000000000000e000000000000000, type: 0}
