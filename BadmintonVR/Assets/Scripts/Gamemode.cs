@@ -9,6 +9,9 @@ using UnityEngine.SceneManagement;
 
 public class Gamemode : MonoBehaviour
 {
+    
+    public static Gamemode Instance { get; private set; }
+    
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     [Header("Difficulté")] public int difficultyLevel = 1;
 
@@ -48,58 +51,75 @@ public class Gamemode : MonoBehaviour
     // Input actions & UI
     [Header("XRI Input Actions")] public InputActionReference continueNextSwingAction;
     public InputActionReference skipRoundAction;
-    public InputActionReference restartAction;
-    public Action continueNextSwingBtn;
-    public Action skipRoundBtn;
 
     private bool isLeftHanded;
 
 
     [Tooltip("Timer")] private float startTime;
     public GameTimer timer;
+    
+    [Header("UI")]
+    public GameModeUI ui;
 
     void OnEnable()
     {
         coordinator.OnSwingScored += OnPoseScored;
-        if (continueNextSwingAction != null)
-        {
-            continueNextSwingAction.action.Enable();
-            continueNextSwingAction.action.performed += OnContinueNextRound;
-        }
-
+        
         if (skipRoundAction != null)
         {
             skipRoundAction.action.Enable();
             skipRoundAction.action.performed += OnSkipRound;
         }
+    }
+    
+    private void BindContinue()
+    {
+        continueNextSwingAction.action.performed -= OnContinueNextRound;
+        continueNextSwingAction.action.performed -= OnRestart;
+        continueNextSwingAction.action.performed += OnContinueNextRound;
+    }
 
-        if (restartAction != null)
-        {
-            restartAction.action.Enable();
-            restartAction.action.performed += OnRestart;
-        }
+    private void BindRestart()
+    {
+        continueNextSwingAction.action.performed -= OnContinueNextRound;
+        continueNextSwingAction.action.performed -= OnRestart;
+        continueNextSwingAction.action.performed += OnRestart;
     }
 
     public void OnContinueNextRound(InputAction.CallbackContext ctx)
     {
+        continueNextSwingAction.action.performed -= OnContinueNextRound;
         StartLaunch();
     }
 
     public void OnSkipRound(InputAction.CallbackContext ctx)
     {
+        
     }
 
     public void OnRestart(InputAction.CallbackContext ctx)
     {
+        continueNextSwingAction.action.performed -= OnRestart;
         PrepareForNextRound();
     }
 
     void OnDisable()
     {
         coordinator.OnSwingScored -= OnPoseScored;
-        continueNextSwingAction.action.performed -= OnContinueNextRound;
-        skipRoundAction.action.performed -= OnSkipRound;
-        restartAction.action.performed -= OnRestart;
+    
+        if (continueNextSwingAction != null)
+            continueNextSwingAction.action.performed -= OnContinueNextRound;
+    
+        if (skipRoundAction != null)
+            skipRoundAction.action.performed -= OnSkipRound;
+    }
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+            Destroy(gameObject);
+        else
+            Instance = this;
     }
 
     void Start()
@@ -133,6 +153,8 @@ public class Gamemode : MonoBehaviour
         Debug.Log("swings and relative pos :" + swingsAndRelativePos.Count.ToString());
         Debug.Log("currentSwingIndex :" +  currentSwingIndex.ToString());
         coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
+        ui?.Show();
+        BindContinue();
     }
 
     void StartLaunch()
@@ -141,6 +163,7 @@ public class Gamemode : MonoBehaviour
         {
             scores.Dequeue();
         }
+        ui?.Hide();
         coordinator.HideReferencePreview();
         launcher.target.position = swingsAndRelativePos[currentSwingIndex].relativePos.position;
         launcher.LaunchShuttlecock();
@@ -201,8 +224,16 @@ public class Gamemode : MonoBehaviour
             if (swingsAndRelativePos.Count < currentSwingIndex)
             {
                 EndGameProcess();
+                return;
             }
         }
+        coordinator.ShowReplay();
+        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
+        ui?.SetPoseScore(poseScore);
+        ui?.SetTargetScore(precisionScore);
+        ui?.SetTotalScore(playerScore);
+        ui?.Show();
+        BindRestart();
     }
 
     public void OnTargetZoneReached(float score)

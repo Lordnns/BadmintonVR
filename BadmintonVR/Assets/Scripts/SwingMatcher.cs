@@ -402,7 +402,20 @@ namespace BadmintonPoseTracking
             var rs = f.GetJoint(TrackedJoint.RightShoulder);
 
             if (!ls.isTracked || !rs.isTracked)
+            {
+                // Fallback: derive body yaw from HMD forward projected onto the XZ plane.
+                // Far better than returning identity (world space) when body tracking is lost —
+                // identity caused joints to be compared in mismatched coordinate spaces.
+                var head = f.GetJoint(TrackedJoint.Head);
+                if (head.isTracked)
+                {
+                    Vector3 fwd = head.rotation * Vector3.forward;
+                    fwd.y = 0f;
+                    if (fwd.sqrMagnitude > 0.001f)
+                        return Quaternion.LookRotation(fwd.normalized, Vector3.up);
+                }
                 return Quaternion.identity;
+            }
 
             Vector3 right = (rs.position - ls.position);
             if (right.sqrMagnitude < 0.0001f) return Quaternion.identity;
@@ -433,7 +446,15 @@ namespace BadmintonPoseTracking
             {
                 var aj = a.joints[_jointIds[k]];
                 var bj = b.joints[_jointIds[k]];
-                if (!aj.isTracked || !bj.isTracked) continue;
+                if (!aj.isTracked || !bj.isTracked)
+                {
+                    // No data = player isn't doing the movement. Assign max cost (t = 1.0).
+                    // Previously this was a silent skip (cost = 0), which caused near-perfect
+                    // scores whenever body tracking dropped confidence.
+                    totalCost   += _weights[k];
+                    totalWeight += _weights[k];
+                    continue;
+                }
 
                 float angle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
                 float t     = angle < tol2x ? angle / tol2x : 1f;
@@ -457,7 +478,13 @@ namespace BadmintonPoseTracking
             {
                 var aj = a.joints[_jointIds[k]];
                 var bj = b.joints[_jointIds[k]];
-                if (!aj.isTracked || !bj.isTracked) continue;
+                if (!aj.isTracked || !bj.isTracked)
+                {
+                    // Flag as maximally wrong so these joints surface in WeakJoints reporting.
+                    _jointDeviation[k] += 180f;
+                    _jointHits[k]++;
+                    continue;
+                }
 
                 float angle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
                 _jointDeviation[k] += angle;

@@ -80,7 +80,7 @@ namespace BadmintonPoseTracking
         public float dtwBandFraction = 0.20f;
 
         [Tooltip("How forgiving the scorer is.  Higher = easier.  Degrees scale.")]
-        [Range(15f, 60f)]
+        [Range(5f, 60f)]
         public float matchSensitivity = 30f;
 
         [Tooltip("Automatically trim idle frames from the player capture.\n" +
