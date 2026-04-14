@@ -717,6 +717,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5374201810882297581, guid: 2b1355e858f2c8f4b9b42111b1022f21, type: 3}
+      propertyPath: m_RequestedTrackingOriginMode
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6497123366097640669, guid: 2b1355e858f2c8f4b9b42111b1022f21, type: 3}
       propertyPath: m_FarAttachMode
       value: 0
@@ -731,7 +735,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9195464609734544242, guid: 2b1355e858f2c8f4b9b42111b1022f21, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
