@@ -62,6 +62,9 @@ namespace BadmintonPoseTracking
         /// <summary>Normalised DTW cost before the exp conversion (debug use).</summary>
         public float NormalisedCost;
 
+        /// <summary>Average per-joint angular deviation (degrees) over the optimal path.</summary>
+        public float AvgJointDeg;
+
         /// <summary>Joints that deviated most on average across the matched path.</summary>
         public string[] WeakJoints;
 
@@ -79,7 +82,7 @@ namespace BadmintonPoseTracking
             string trim = OriginalFrameCount > 0
                 ? $"  Trim={OriginalFrameCount}→{TrimmedFrameCount}f"
                 : string.Empty;
-            return $"Score={Score:F1}  NormCost={NormalisedCost:F3}" +
+            return $"Score={Score:F1}  NormCost={NormalisedCost:F3}  AvgJointDeg={AvgJointDeg:F1}°" +
                    $"  Weak=[{string.Join(", ", WeakJoints)}]{trim}";
         }
     }
@@ -335,12 +338,48 @@ namespace BadmintonPoseTracking
             pathLength++;
 
             // ── Compute final score ───────────────────────────────────────
+            //
+            //    TWO independent signals, combined via geometric mean:
+            //
+            //    1. dtwScore  — path-alignment quality (timing-invariant).
+            //       Can be artificially inflated when BodyFrame normalization
+            //       is imperfect or when the DTW path degenerates (many-to-one
+            //       mappings through accidental low-cost cells).
+            //
+            //    2. jointScore — average per-joint angular deviation across the
+            //       optimal path (from the traceback above).  Directly measures
+            //       whether each joint ended up in the right place, regardless
+            //       of how DTW chose to align the sequences.
+            //
+            //    Geometric mean: sqrt(a * b).  If EITHER metric says "wrong
+            //    swing," the combined score reflects it.  A wrong swing that
+            //    somehow fools the DTW path (dtwScore=97%) but shows 80°
+            //    joint deviations (jointScore≈2%) yields sqrt(97*2) ≈ 14%.
 
-            float rawCost = _dtw[(n - 1) * MaxFrames + (m - 1)];
+            float rawCost  = _dtw[(n - 1) * MaxFrames + (m - 1)];
             float normCost = rawCost / Mathf.Max(1, pathLength);
+            float dtwScore = Mathf.Exp(-normCost / Sensitivity) * 100f;
 
-            // exp(-normCost / Sensitivity) × 100
-            float score = Mathf.Exp(-normCost / Sensitivity) * 100f;
+            // Average per-joint deviation (degrees) over the traceback path
+            float totalDev   = 0f;
+            int   trackedJointCount = 0;
+            for (int k = 0; k < _numJoints; k++)
+            {
+                if (_jointHits[k] > 0)
+                {
+                    totalDev += _jointDeviation[k] / _jointHits[k];
+                    trackedJointCount++;
+                }
+            }
+            float avgJointDeg = trackedJointCount > 0 ? totalDev / trackedJointCount : 0f;
+            float jointScore  = Mathf.Exp(-avgJointDeg / Sensitivity) * 100f;
+
+            // Geometric mean — both must be high for a good final score
+            float score = Mathf.Sqrt(dtwScore * jointScore);
+
+            Debug.Log($"[SwingMatcher] dtwScore={dtwScore:F1}  jointScore={jointScore:F1}  " +
+                      $"avgDev={avgJointDeg:F1}°  normCost={normCost:F3}  " +
+                      $"→ final={score:F1}");
 
             // ── Identify weak joints ──────────────────────────────────────
 
@@ -373,70 +412,73 @@ namespace BadmintonPoseTracking
             {
                 Score           = score,
                 NormalisedCost  = normCost,
+                AvgJointDeg     = avgJointDeg,
                 WeakJoints      = finalWeak
             };
         }
 
         // ── Per-frame distance ─────────────────────────────────────────────
         //
-        //    Both rotations are expressed relative to their own Hips
-        //    so the score is yaw/facing-independent (the player does
-        //    not need to face the same direction as the reference).
+        //    All joint rotations are expressed relative to the body (pelvis)
+        //    frame so the score is orientation-independent — the player does
+        //    not need to face the same direction as the reference.
 
         // ── Reference frame ───────────────────────────────────────────────
         //
-        //    Body tracking mode (non-FullBody) gives us head, shoulders,
-        //    and arms — no hips or spine.  We can't use Hips as the anchor.
+        //    PRIMARY: Hips.rotation (OVRBody Body mode tracks the pelvis).
+        //    The pelvis is the most stable anchor — it does NOT co-move with
+        //    the arm.  The old shoulder-line approach was corrupted because
+        //    raising the racket arm shifts the shoulder joint position, which
+        //    rotated the derived "shoulder frame" in the same direction as the
+        //    arm swing.  FrameDist then cancelled out the very differences we
+        //    were trying to measure (normCost ≈ 0.4 even when WeakJoints
+        //    showed 80–105° deviations).
         //
-        //    Instead we derive a synthetic torso frame from the two shoulders:
-        //      right   = normalize(RightShoulder.pos - LeftShoulder.pos)
-        //      forward = normalize(cross(right, Vector3.up))
-        //      up      = cross(forward, right)          ← reorthogonalised
-        //
-        //    This frame is stable across all player orientations and requires
-        //    only the two shoulder positions — always available in Body mode.
+        //    FALLBACK 1: shoulder line (still better than nothing if hips lost)
+        //    FALLBACK 2: HMD yaw projection (always available via HMD)
 
-        private static Quaternion ShoulderFrame(in PoseFrame f)
+        private static Quaternion BodyFrame(in PoseFrame f)
         {
+            // ── Primary: pelvis rotation ───────────────────────────────────
+            var hips = f.GetJoint(TrackedJoint.Hips);
+            if (hips.isTracked)
+                return hips.rotation;
+
+            // ── Fallback 1: synthetic torso frame from shoulder positions ──
             var ls = f.GetJoint(TrackedJoint.LeftShoulder);
             var rs = f.GetJoint(TrackedJoint.RightShoulder);
-
-            if (!ls.isTracked || !rs.isTracked)
+            if (ls.isTracked && rs.isTracked)
             {
-                // Fallback: derive body yaw from HMD forward projected onto the XZ plane.
-                // Far better than returning identity (world space) when body tracking is lost —
-                // identity caused joints to be compared in mismatched coordinate spaces.
-                var head = f.GetJoint(TrackedJoint.Head);
-                if (head.isTracked)
+                Vector3 right = rs.position - ls.position;
+                if (right.sqrMagnitude > 0.0001f)
                 {
-                    Vector3 fwd = head.rotation * Vector3.forward;
-                    fwd.y = 0f;
-                    if (fwd.sqrMagnitude > 0.001f)
-                        return Quaternion.LookRotation(fwd.normalized, Vector3.up);
+                    right.Normalize();
+                    Vector3 forward = Vector3.Cross(right, Vector3.up);
+                    if (forward.sqrMagnitude > 0.001f)
+                    {
+                        forward.Normalize();
+                        return Quaternion.LookRotation(forward, Vector3.Cross(forward, right));
+                    }
                 }
-                return Quaternion.identity;
             }
 
-            Vector3 right = (rs.position - ls.position);
-            if (right.sqrMagnitude < 0.0001f) return Quaternion.identity;
-            right.Normalize();
-
-            Vector3 forward = Vector3.Cross(right, Vector3.up);
-            if (forward.sqrMagnitude < 0.0001f)
+            // ── Fallback 2: HMD yaw (always available) ────────────────────
+            var head = f.GetJoint(TrackedJoint.Head);
+            if (head.isTracked)
             {
-                // Degenerate case: shoulders are stacked vertically — fall back
-                return Quaternion.identity;
+                Vector3 fwd = head.rotation * Vector3.forward;
+                fwd.y = 0f;
+                if (fwd.sqrMagnitude > 0.001f)
+                    return Quaternion.LookRotation(fwd.normalized, Vector3.up);
             }
-            forward.Normalize();
 
-            Vector3 up = Vector3.Cross(forward, right);   // guaranteed unit length
-            return Quaternion.LookRotation(forward, up);
+            return Quaternion.identity;
         }
 
         private float FrameDist(in PoseFrame a, in PoseFrame b)
         {
-            Quaternion aInv = Quaternion.Inverse(ShoulderFrame(a));
-            Quaternion bInv = Quaternion.Inverse(ShoulderFrame(b));
+            Quaternion aInv = Quaternion.Inverse(BodyFrame(a));
+            Quaternion bInv = Quaternion.Inverse(BodyFrame(b));
 
             float totalCost   = 0f;
             float totalWeight = 0f;
@@ -471,8 +513,8 @@ namespace BadmintonPoseTracking
         /// </summary>
         private void FrameDistDetailed(in PoseFrame a, in PoseFrame b)
         {
-            Quaternion aInv = Quaternion.Inverse(ShoulderFrame(a));
-            Quaternion bInv = Quaternion.Inverse(ShoulderFrame(b));
+            Quaternion aInv = Quaternion.Inverse(BodyFrame(a));
+            Quaternion bInv = Quaternion.Inverse(BodyFrame(b));
 
             for (int k = 0; k < _numJoints; k++)
             {

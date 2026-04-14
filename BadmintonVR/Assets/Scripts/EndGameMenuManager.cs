@@ -9,13 +9,15 @@ public class EndGameMenuManager : MonoBehaviour
     public void SetTimeText()
     {
         float duration = GameSettings.duration;
-        timeText.text = "Time: " + duration.ToString("F2");
+        if (timeText != null)
+            timeText.text = "Time: " + duration.ToString("F2");
     }
 
     public void SetScoreText()
     {
         float score = GameSettings.score;
-        scoreText.text = "Score: " + score.ToString("F2");
+        if (scoreText != null)
+            scoreText.text = "Score: " + score.ToString("F2");
     }
 
     public void Start()
