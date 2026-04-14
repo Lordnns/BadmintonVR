@@ -19994,7 +19994,7 @@ MonoBehaviour:
   referenceBoneColor: {r: 0.2, g: 0.6, b: 1, a: 0.4}
   devSwingName: swing_01
   dtwBandFraction: 0.2
-  matchSensitivity: 15
+  matchSensitivity: 30
   autoTrimCapture: 1
   passThreshold: 60
   maxRecordingDuration: 8
@@ -21652,7 +21652,7 @@ PrefabInstance:
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: skipRoundAction
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: -4608310938688653346, guid: c348712bda248c246b8c49b3db54643f, type: 3}
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: shuttlecockTarget
       value: 
