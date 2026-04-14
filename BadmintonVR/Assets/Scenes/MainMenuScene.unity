@@ -6078,6 +6078,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dea5e3629da54b40ab4b3f05339e8891, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VRUIDebugger
+  rayInteractor: {fileID: 0}
 --- !u!4 &920076842
 Transform:
   m_ObjectHideFlags: 0
@@ -10370,6 +10371,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 276217669672892155, guid: 8307a09684fc360409052fdb0edf1f99, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1561376998176879651, guid: 8307a09684fc360409052fdb0edf1f99, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1561376998176879651, guid: 8307a09684fc360409052fdb0edf1f99, type: 3}
       propertyPath: launchSpeed
       value: 13
@@ -21299,6 +21308,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dea5e3629da54b40ab4b3f05339e8891, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VRUIDebugger
+  rayInteractor: {fileID: 0}
 --- !u!4 &2066673796
 Transform:
   m_ObjectHideFlags: 0

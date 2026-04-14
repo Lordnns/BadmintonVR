@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class EndGameMenuManager : MonoBehaviour
 {
@@ -18,6 +19,11 @@ public class EndGameMenuManager : MonoBehaviour
         float score = GameSettings.score;
         if (scoreText != null)
             scoreText.text = "Score: " + score.ToString("F2");
+    }
+
+    public void GoBackToMenu()
+    {
+        SceneManager.LoadScene(0);
     }
 
     public void Start()
