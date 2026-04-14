@@ -105,7 +105,7 @@ namespace BadmintonPoseTracking
         /// Units: degrees.  A normalised cost equal to this value → score ~37.
         /// Lower = stricter grading.  Good range: 20–45.
         /// </summary>
-        public float Sensitivity = 30f;
+        public float Sensitivity = 45f;
 
         /// <summary>
         /// When true, the player capture is automatically trimmed to its
@@ -374,7 +374,8 @@ namespace BadmintonPoseTracking
             float avgJointDeg = trackedJointCount > 0 ? totalDev / trackedJointCount : 0f;
             float jointScore  = Mathf.Exp(-avgJointDeg / Sensitivity) * 100f;
 
-            // Geometric mean — both must be high for a good final score
+            // Geometric mean — amplifies real differences now that FrameDist
+            // includes position-direction (not just rotation).
             float score = Mathf.Sqrt(dtwScore * jointScore);
 
             Debug.Log($"[SwingMatcher] dtwScore={dtwScore:F1}  jointScore={jointScore:F1}  " +
@@ -480,9 +481,16 @@ namespace BadmintonPoseTracking
             Quaternion aInv = Quaternion.Inverse(BodyFrame(a));
             Quaternion bInv = Quaternion.Inverse(BodyFrame(b));
 
+            // Body-relative position anchors (hips)
+            var aHips = a.GetJoint(TrackedJoint.Hips);
+            var bHips = b.GetJoint(TrackedJoint.Hips);
+            bool canDoPos = aHips.isTracked && bHips.isTracked;
+
             float totalCost   = 0f;
             float totalWeight = 0f;
-            float tol2x       = 90f;   // 45° × 2 — saturate at 90°
+            float rotSat      = 110f;  // rotation saturation (degrees)
+            float posSat      = 120f;  // position-direction saturation (degrees)
+            float posBlend    = 0.5f;  // how much position-direction contributes vs rotation
 
             for (int k = 0; k < _numJoints; k++)
             {
@@ -490,16 +498,41 @@ namespace BadmintonPoseTracking
                 var bj = b.joints[_jointIds[k]];
                 if (!aj.isTracked || !bj.isTracked)
                 {
-                    // No data = player isn't doing the movement. Assign max cost (t = 1.0).
-                    // Previously this was a silent skip (cost = 0), which caused near-perfect
-                    // scores whenever body tracking dropped confidence.
-                    totalCost   += _weights[k];
+                    totalCost   += _weights[k] * 0.5f;
                     totalWeight += _weights[k];
                     continue;
                 }
 
-                float angle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
-                float t     = angle < tol2x ? angle / tol2x : 1f;
+                // ── Rotation cost (existing) ──
+                float rotAngle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
+                float rotT     = rotAngle < rotSat ? rotAngle / rotSat : 1f;
+
+                // ── Position-direction cost (new) ──
+                // "Where is this joint relative to hips?" is far more
+                // discriminating than rotation alone.  Arm up vs arm down
+                // can have similar wrist rotations but wildly different
+                // direction vectors from the pelvis.
+                float posT = 0f;
+                if (canDoPos)
+                {
+                    Vector3 aDirWorld = aj.position - aHips.position;
+                    Vector3 bDirWorld = bj.position - bHips.position;
+
+                    if (aDirWorld.sqrMagnitude > 0.001f && bDirWorld.sqrMagnitude > 0.001f)
+                    {
+                        // Rotate into body-local space so facing direction cancels out
+                        Vector3 aDirLocal = aInv * aDirWorld;
+                        Vector3 bDirLocal = bInv * bDirWorld;
+                        float posAngle = Vector3.Angle(aDirLocal, bDirLocal);
+                        posT = posAngle < posSat ? posAngle / posSat : 1f;
+                    }
+                }
+
+                // Blend rotation + position costs
+                float t = canDoPos
+                    ? (1f - posBlend) * rotT + posBlend * posT
+                    : rotT;
+
                 totalCost   += t * _weights[k];
                 totalWeight += _weights[k];
             }
@@ -516,20 +549,39 @@ namespace BadmintonPoseTracking
             Quaternion aInv = Quaternion.Inverse(BodyFrame(a));
             Quaternion bInv = Quaternion.Inverse(BodyFrame(b));
 
+            var aHips = a.GetJoint(TrackedJoint.Hips);
+            var bHips = b.GetJoint(TrackedJoint.Hips);
+            bool canDoPos = aHips.isTracked && bHips.isTracked;
+
             for (int k = 0; k < _numJoints; k++)
             {
                 var aj = a.joints[_jointIds[k]];
                 var bj = b.joints[_jointIds[k]];
                 if (!aj.isTracked || !bj.isTracked)
                 {
-                    // Flag as maximally wrong so these joints surface in WeakJoints reporting.
-                    _jointDeviation[k] += 180f;
+                    _jointDeviation[k] += 75f;
                     _jointHits[k]++;
                     continue;
                 }
 
-                float angle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
-                _jointDeviation[k] += angle;
+                float rotAngle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
+
+                float posAngle = 0f;
+                if (canDoPos)
+                {
+                    Vector3 aDirWorld = aj.position - aHips.position;
+                    Vector3 bDirWorld = bj.position - bHips.position;
+                    if (aDirWorld.sqrMagnitude > 0.001f && bDirWorld.sqrMagnitude > 0.001f)
+                    {
+                        Vector3 aDirLocal = aInv * aDirWorld;
+                        Vector3 bDirLocal = bInv * bDirWorld;
+                        posAngle = Vector3.Angle(aDirLocal, bDirLocal);
+                    }
+                }
+
+                // Blend to match FrameDist
+                float blended = canDoPos ? 0.5f * rotAngle + 0.5f * posAngle : rotAngle;
+                _jointDeviation[k] += blended;
                 _jointHits[k]++;
             }
         }
@@ -539,23 +591,23 @@ namespace BadmintonPoseTracking
         private static ScoringJointEntry[] DefaultJoints() => new ScoringJointEntry[]
         {
             // Body tracking mode gives us: shoulders + arms + head only.
-            // Reference frame is derived from the shoulder line — see ShoulderFrame().
+            // Reference frame is derived from hips — see BodyFrame().
 
-            // Both shoulders — also anchor the reference frame, so always include them
-            new(TrackedJoint.RightShoulder,  2.0f),
-            new(TrackedJoint.LeftShoulder,   1.2f),
+            // Both shoulders — stable anchors
+            new(TrackedJoint.RightShoulder,  1.5f),
+            new(TrackedJoint.LeftShoulder,   1.0f),
 
-            // Right arm — the racket arm, heaviest weights
-            new(TrackedJoint.RightScapula,   1.5f),
-            new(TrackedJoint.RightUpperArm,  2.5f),
-            new(TrackedJoint.RightForearm,   2.5f),
-            new(TrackedJoint.RightWrist,     2.0f),
+            // Right arm — the racket arm (reduced from 2.5 — noisy on Quest 3)
+            new(TrackedJoint.RightScapula,   1.0f),
+            new(TrackedJoint.RightUpperArm,  1.8f),
+            new(TrackedJoint.RightForearm,   1.8f),
+            new(TrackedJoint.RightWrist,     1.2f),
 
             // Left arm — counter-balance signal
             new(TrackedJoint.LeftUpperArm,   0.8f),
 
-            // Head from HMD — gaze direction, lightweight
-            new(TrackedJoint.Head,           0.5f),
+            // Head from HMD — always clean data, reward looking at the birdie
+            new(TrackedJoint.Head,           0.8f),
         };
     }
 }
