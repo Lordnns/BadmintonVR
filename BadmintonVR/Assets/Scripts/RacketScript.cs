@@ -25,7 +25,9 @@ public class RacketScript : MonoBehaviour
 
     [Header("Tags")]
     public string shuttleCockTag = "Volant";
-    public string racketHeadTag = "RacketHead";
+
+    [Header("Collider")]
+    public Collider stringsCollider;
 
     private AudioSource _audioSource;
     private Vector3 _previousPosition;
@@ -62,10 +64,21 @@ public class RacketScript : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
+        if (collision.gameObject.CompareTag(shuttleCockTag))
+        {
+            if (Time.time - _lastHitTime < hitCooldown) return;
+            Debug.Log(collision.GetContact(0).thisCollider.name);
+            if (collision.rigidbody.linearVelocity.magnitude < 5f) return;
+            
+            _audioSource.PlayOneShot(HitClip);
+            _lastHitTime = Time.time;
+        }
+        /*Debug.Log("Collision Enter");
         foreach (ContactPoint contact in collision.contacts)
         {
             if (contact.thisCollider.gameObject.CompareTag(racketHeadTag))
             {
+                Debug.Log(contact.thisCollider.gameObject.name);
                 if (!collision.gameObject.CompareTag(shuttleCockTag)) return;
                 if (Time.time - _lastHitTime < hitCooldown) return;
                 if (collision.rigidbody.linearVelocity.magnitude < 5f) return;
@@ -73,6 +86,6 @@ public class RacketScript : MonoBehaviour
                 _audioSource.PlayOneShot(HitClip);
                 _lastHitTime = Time.time;
             }
-        }
+        }*/
     }
 }
