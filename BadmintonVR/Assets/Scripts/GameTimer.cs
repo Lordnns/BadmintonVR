@@ -36,8 +36,9 @@ public class GameTimer : MonoBehaviour
 
     void UpdateTimerDisplay()
     {
-        int seconds = Mathf.CeilToInt(timeLeft);
-        timerText.text = "Time: " + seconds.ToString();
+        int minutes = Mathf.FloorToInt(timeLeft / 60); 
+        int seconds = Mathf.FloorToInt(timeLeft % 60); 
+        timerText.text = "Time: " + string.Format("{0:00}:{1:00}", minutes, seconds);
     }
 
     public void ResetTimer()

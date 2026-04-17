@@ -11,7 +11,11 @@ public class EndGameMenuManager : MonoBehaviour
     {
         float duration = GameSettings.duration;
         if (timeText != null)
-            timeText.text = "Time: " + duration.ToString("F2");
+        {
+            int minutes = Mathf.FloorToInt(duration / 60);
+            int seconds = Mathf.FloorToInt(duration % 60);
+            timeText.text = "Time: " + string.Format("{0:00}:{1:00}", minutes, seconds);
+        }
     }
 
     public void SetScoreText()
