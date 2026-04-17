@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using BadmintonPoseTracking;
 using UnityEngine;
-using System.IO;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using Random = UnityEngine.Random;
@@ -20,6 +19,7 @@ public class Gamemode : MonoBehaviour
     [Tooltip("Score minimum que le joueur doit atteindre sur ces 3 derniers tirs pour valider ce niveau")]
     public float scoreThreshold = 80.0f;
 
+    private float playerScore = 0;
     private float precisionScore = 0;
     private float poseScore = 0;
     private Queue<float> scores = new Queue<float>();  // circular buffer, max 3
@@ -60,6 +60,14 @@ public class Gamemode : MonoBehaviour
     [Header("UI")]
     public GameModeUI ui;
 
+    private float roundScore = 0;
+    
+    IEnumerator WaitAndExecute(float waitTime, Action callback)
+    {
+        yield return new WaitForSeconds(waitTime);
+        callback?.Invoke(); 
+    }
+    
     void OnEnable()
     {
         coordinator.OnSwingScored += OnPoseScored;
@@ -71,20 +79,6 @@ public class Gamemode : MonoBehaviour
         }
     }
     
-    private void BindContinue()
-    {
-        continueNextSwingAction.action.performed -= OnContinueNextRound;
-        continueNextSwingAction.action.performed -= OnRestart;
-        continueNextSwingAction.action.performed += OnContinueNextRound;
-    }
-
-    private void BindRestart()
-    {
-        continueNextSwingAction.action.performed -= OnContinueNextRound;
-        continueNextSwingAction.action.performed -= OnRestart;
-        continueNextSwingAction.action.performed += OnRestart;
-    }
-
     public void OnContinueNextRound(InputAction.CallbackContext ctx)
     {
         continueNextSwingAction.action.performed -= OnContinueNextRound;
@@ -134,25 +128,27 @@ public class Gamemode : MonoBehaviour
 
     void Start()
     {
+        // Setup correct relative targets
         isLeftHanded = GameSettings.isLeftHanded;
         swingsAndRelativePos = isLeftHanded ? swingsAndRelativePosLeftHand : swingsAndRelativePosRightHand;
         startTime = Time.time;
-        SetLauncherPosition(0);
+        
+        // Wait for input to start pre-swing phase
+        continueNextSwingAction.action.performed += StartTrial;
     }
 
+    private void StartTrial(InputAction.CallbackContext ctx)
+    {
+        continueNextSwingAction.action.performed -= StartTrial;
+        SetLauncherPosition(0);
+    }
+    
     private void SetLauncherPosition(float alpha)
     {
         rails.alpha = alpha;
-        StartCoroutine(DelayForLauncherPosition(1.0f));
+        StartCoroutine(WaitAndExecute(1.0f, PreSwing));
     }
-
-    public IEnumerator DelayForLauncherPosition(float duration)
-    {
-        yield return new WaitForSeconds(duration);
-        PreSwing();
-    }
-
-
+    
     void PreSwing()
     {
         // Reset the score values
@@ -160,58 +156,31 @@ public class Gamemode : MonoBehaviour
         poseScore = 0;
 
         // Start the launch routine
-        Debug.Log("swings and relative pos :" + swingsAndRelativePos.Count.ToString());
-        Debug.Log("currentSwingIndex :" +  currentSwingIndex.ToString());
         coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
         ui?.Show();
-        BindContinue();
+        
+        // Wait for input to launch the shuttlecock
+        continueNextSwingAction.action.performed += HideUIAndPreProcess;
     }
 
-    void StartLaunch()
+    void HideUIAndPreProcess(InputAction.CallbackContext ctx)
     {
         ui?.Hide();
         coordinator.HideReferencePreview();
         launcher.target.position = swingsAndRelativePos[currentSwingIndex].relativePos.position;
-
-        StartCoroutine(Delay(0.03f));
+        StartCoroutine(WaitAndExecute(0.03f,StartLaunch));
     }
 
-
-    public IEnumerator Delay(float duration)
+    void StartLaunch()
     {
-        yield return new WaitForSeconds(duration);
         launcher.LaunchShuttlecock();
         coordinator.OnLaunch(swingsAndRelativePos[currentSwingIndex].name);
     }
     
+    // After launch events
     public void OnShuttlecockLanded()
     {
         coordinator.OnShuttlecockLanded();
-    }
-
-    public void OnTimeOut()
-    {
-        // GameTimer runs for the whole session — no per-round logic.
-    }
-
-    public void ShowScoreUI()
-    {
-        // Show score UI
-        coordinator.ShowReplay();
-        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
-    }
-
-    public void PrepareForNextRound()
-    {
-        coordinator.HidePlayerReplay();
-        SetLauncherPosition(Random.Range(-1f, 1f));
-    }
-
-    private void EndGameProcess()
-    {
-        // COMPLETED CHALLENGE LOGIC
-        GameSettings.duration = Time.time - startTime;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
     }
 
     private void OnPoseScored(SwingScore score)
@@ -219,8 +188,24 @@ public class Gamemode : MonoBehaviour
         poseScore = score.Score;
 
         // Combined score for this attempt
-        float roundScore = precisionScore;
+        roundScore = precisionScore;
+        
+        coordinator.ShowReplay();
+        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
+        timer.Pause();
+        ui?.SetPoseScore(poseScore);
+        ui?.SetTargetScore(precisionScore);
+        ui?.SetTotalScore(roundScore);
+        ui?.SetTimeLeft(timer.timeLeft);
+        ui?.SetShotsValidated(3);
+        ui?.SetReferenceImage(roundScore >= scoreThreshold);
+        ui?.Show();
+        
+        StartCoroutine(WaitAndExecute(3.0f, ProcessScore));
+    }
 
+    void ProcessScore()
+    {
         // Push into circular buffer — keep last 3 only
         scores.Enqueue(roundScore);
         if (scores.Count > 3) scores.Dequeue();
@@ -236,21 +221,33 @@ public class Gamemode : MonoBehaviour
                 return;
             }
         }
-
-        coordinator.ShowReplay();
-        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
-        ui?.SetPoseScore(poseScore);
-        ui?.SetTargetScore(precisionScore);
-        ui?.SetTotalScore(roundScore);
-        ui?.Show();
-        BindRestart();
+        continueNextSwingAction.action.performed += HideUIAndPreProcess;
     }
-
+    
     public void OnTargetZoneReached(float score)
     {
         precisionScore = score;
     }
+    
+    public void OnTimeOut()
+    {
+        // GameTimer runs for the whole session — no per-round logic.
+        PreSwing();
+    }
 
+    public void ShowScoreUI()
+    {
+        // Show score UI
+        coordinator.ShowReplay();
+        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
+    }
+
+    public void PrepareForNextRound()
+    {
+        coordinator.HidePlayerReplay();
+        SetLauncherPosition(Random.Range(-1f, 1f));
+    }
+    
     // Check if last three scores are above threshold
     private bool CheckLastThreeScores()
     {
@@ -267,5 +264,12 @@ public class Gamemode : MonoBehaviour
         }
 
         return true;
+    }
+    
+    private void EndGameProcess()
+    {
+        // COMPLETED CHALLENGE LOGIC
+        GameSettings.duration = Time.time - startTime;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
     }
 }

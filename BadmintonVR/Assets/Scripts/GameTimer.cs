@@ -46,4 +46,14 @@ public class GameTimer : MonoBehaviour
         timeLeft = initialDuration;
         isTimerRunning = true;
     }
+
+    public void Pause()
+    {
+        isTimerRunning = false;
+    }
+    
+    public void Resume()
+    {
+        isTimerRunning = true;
+    }
 }
