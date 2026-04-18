@@ -40,7 +40,7 @@ public class GameModeUI : MonoBehaviour
     public void SetTimeLeft(float time)
     {
         if (timeLeftText != null)
-            timeLeftText.text = "Time Left: " + time.ToString("F0");
+            timeLeftText.text = "Time Left: " + time.ToString("F0") + "s";
     }
     
     public void SetShotsValidated(int shots)

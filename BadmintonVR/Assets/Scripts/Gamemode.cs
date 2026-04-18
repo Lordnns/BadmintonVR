@@ -121,9 +121,11 @@ public class Gamemode : MonoBehaviour
 
     private void StartTrial(InputAction.CallbackContext ctx)
     {
+        ui?.Hide();
+        timer.gameObject.SetActive(true);
+        timer.Resume();
         continueNextSwingAction.action.performed -= StartTrial;
         SetLauncherPosition(Random.Range(-1f, 1f));
-        Debug.Log("StartTrial : fin fonciton"); 
     }
 
     private void SetLauncherPosition(float alpha)
@@ -140,7 +142,7 @@ public class Gamemode : MonoBehaviour
         poseScore = 0;
         hasHitRacket = false;
         // Start the launch routine
-        // coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
+        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
 
         // Wait for input to launch the shuttlecock
         continueNextSwingAction.action.performed += HideUIAndPreProcess;
@@ -197,9 +199,10 @@ public class Gamemode : MonoBehaviour
             ui?.SetTotalScore(roundScore);
             ui?.SetTimeLeft(timer.timeLeft);
             ui?.SetShotsValidated(3);
-            ui?.SetReferenceImage(roundScore >= scoreThreshold);
+            ui?.SetReferenceImage(roundScore >= 1);
+            timer.gameObject.SetActive(false);
             ui?.Show();
-
+            
             StartCoroutine(WaitAndExecute(3.0f, ProcessScore));
         }
     }
