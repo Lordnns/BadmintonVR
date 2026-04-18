@@ -22,7 +22,7 @@ public class ShuttlecockScript : MonoBehaviour
     public bool hasTouchedGround = false;
 
     public UnityEvent OnShuttlecockLanded;
-
+    public UnityEvent OnRacketHit;
     
     
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -66,12 +66,19 @@ public class ShuttlecockScript : MonoBehaviour
         if (other.CompareTag("Ground") || other.GetComponent<TargetZone>())
         {
             hasTouchedGround = true;
-            OnShuttlecockLanded?.Invoke();
+            if (Gamemode.Instance != null)
+            {
+                Gamemode.Instance.OnShuttlecockLanded(); 
+            }
         }
     }
 
     private void OnCollisionEnter(Collision other)
     {
-        //Debug.Log($"[Shuttlecock] hit object named: {other.gameObject.name} with Tag: {other.gameObject.tag}");
+        Debug.Log($"[Shuttlecock] hit object named: {other.gameObject.name} with Tag: {other.gameObject.tag}");
+        if (other.gameObject.CompareTag("RacketHead"))
+        {
+            Gamemode.Instance.OnRacketHit(); 
+        }
     }
 }

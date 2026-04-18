@@ -9,7 +9,7 @@ public class GameTimer : MonoBehaviour
     private float initialDuration;
     public TMP_Text timerText;
     private bool isTimerRunning = true;
-    
+    public TMP_Text swingTypeText;
     
     public UnityEvent OnTimeOut;
 
@@ -55,5 +55,24 @@ public class GameTimer : MonoBehaviour
     public void Resume()
     {
         isTimerRunning = true;
+    }
+    
+    private string getStringFromType(int swingType)
+    {
+        switch (swingType)
+        {
+            case 0:
+                return "Smash";
+            case 1:
+                return "Coup droit";
+            case 2:
+                return "Revers";
+        }
+        return "None";
+    }
+
+    public void SetSwingType(int swingType)
+    {
+        swingTypeText.text = "Tir attendu : " + getStringFromType(swingType);
     }
 }

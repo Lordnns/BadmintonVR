@@ -236,6 +236,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Racket1
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 8d2666e74c334dd4ca3f7201be39298f, type: 3}
+      propertyPath: m_TagString
+      value: RacketHead
+      objectReference: {fileID: 0}
     - target: {fileID: 5982596318731604604, guid: 8d2666e74c334dd4ca3f7201be39298f, type: 3}
       propertyPath: m_LocalPosition.y
       value: 0

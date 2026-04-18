@@ -223,10 +223,13 @@ MonoBehaviour:
   hasTouchedGround: 0
   OnShuttlecockLanded:
     m_PersistentCalls:
+      m_Calls: []
+  OnRacketHit:
+    m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
         m_TargetAssemblyTypeName: Gamemode, Assembly-CSharp
-        m_MethodName: OnShuttlecockLanded
+        m_MethodName: OnRacketHit
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

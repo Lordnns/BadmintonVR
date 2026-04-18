@@ -53,6 +53,8 @@ public class GameModeUI : MonoBehaviour
     {
         referenceImage.texture = validated ? textureValidated : textureNotValidated;
     }
+
+
     
     public void Show() => gameObject.SetActive(true);
     public void Hide() => gameObject.SetActive(false);
