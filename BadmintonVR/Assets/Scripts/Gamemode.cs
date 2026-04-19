@@ -184,27 +184,24 @@ public class Gamemode : MonoBehaviour
 
     private void OnPoseScored(SwingScore score)
     {
-        if (hasHitRacket)
-        {
-            poseScore = score.Score;
+        poseScore = score.Score;
 
-            // Combined score for this attempt
-            roundScore = precisionScore;
+        // Combined score for this attempt
+        roundScore = precisionScore;
 
-            coordinator.ShowReplay();
-            coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
-            timer.Pause();
-            ui?.SetPoseScore(poseScore);
-            ui?.SetTargetScore(precisionScore);
-            ui?.SetTotalScore(roundScore);
-            ui?.SetTimeLeft(timer.timeLeft);
-            ui?.SetShotsValidated(3);
-            ui?.SetReferenceImage(roundScore >= 1);
-            timer.gameObject.SetActive(false);
-            ui?.Show();
-            
-            StartCoroutine(WaitAndExecute(3.0f, ProcessScore));
-        }
+        coordinator.ShowReplay();
+        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
+        timer.Pause();
+        ui?.SetPoseScore(poseScore);
+        ui?.SetTargetScore(precisionScore);
+        ui?.SetTotalScore(roundScore);
+        ui?.SetTimeLeft(timer.timeLeft);
+        ui?.SetShotsValidated(3);
+        ui?.SetReferenceImage(roundScore >= 1);
+        timer.gameObject.SetActive(false);
+        ui?.Show();
+
+        StartCoroutine(WaitAndExecute(3.0f, ProcessScore));
     }
 
     void ProcessScore()

@@ -1,49 +1,63 @@
 ﻿// ============================================================
-//  SwingMatcher.cs
+//  SwingMatcher.cs  (V2 — segment-based scoring)
 //
 //  Compares two PoseCaptures using Dynamic Time Warping (DTW)
 //  with a Sakoe-Chiba band constraint.
 //
-//  WHY DTW?
-//  ────────────────────────────────────────────────────────────
-//  A reference smash was recorded at normal pace.  The player
-//  might swing 20% faster or slower.  Naive frame-by-frame
-//  comparison punishes good technique just because the timing
-//  differs.  DTW finds the OPTIMAL alignment between the two
-//  sequences, stretching/compressing time on each side to
-//  minimise the total cost.  The result is a path through the
-//  n×m cost matrix; the path cost, normalised by its length,
-//  gives a distance that is timing-invariant.
+//  ─── WHAT CHANGED FROM V1 ───────────────────────────────────
 //
-//  BAND CONSTRAINT (Sakoe-Chiba)
-//  ────────────────────────────────────────────────────────────
-//  Unconstrained DTW allows arbitrarily degenerate paths
-//  (e.g. one frame mapped to all 90 reference frames).  The
-//  band limits warping to ±BandFraction of max(n,m), keeping
-//  timing biologically plausible and cutting computation from
-//  O(n×m) to O(n × band_width).
+//  V1 FrameDist() blended joint.rotation and hips-to-joint
+//  direction 50/50.  Two problems killed the score gradient:
 //
-//  SCORING
-//  ────────────────────────────────────────────────────────────
-//  Raw DTW cost = sum of frame-pair distances along the path.
-//  Normalised cost = raw / path_length.
-//  Score [0,100] = 100 × exp(−normalised_cost / Sensitivity)
-//  Sensitivity tunes how steeply the score drops with error.
-//  Default ~30° angular sensitivity feels natural for badminton.
+//    1. Joint rotations on Quest 3 body tracking are derived
+//       from child-joint positions and carry ~20–30° of
+//       baseline noise.  Making rotation half the signal
+//       pre-loaded every score with a large random error that
+//       good and bad swings shared equally → scores collapsed
+//       into a narrow mid-range band.
 //
-//  PERFORMANCE
-//  ────────────────────────────────────────────────────────────
-//  • Pre-allocated flat float[] matrix (no per-call alloc).
-//  • Parallel float[] and int[] for joint weights/ids.
-//    (avoids struct field reads in the innermost loop)
-//  • float multiply instead of Mathf.Cos in score conversion.
-//  • All math uses structs / value types — zero boxing.
+//    2. Hips-to-wrist direction partially masks arm motion:
+//       OVR's body-tracking IK shifts the shoulder joint when
+//       the arm rises, so the shoulder (and therefore the
+//       wrist) co-moves with the arm.  A high-arm pose and a
+//       low-arm pose produce surprisingly similar hips→wrist
+//       directions, so the metric loses discrimination on the
+//       exact feature it was supposed to measure.
+//
+//  V2 scores BONE DIRECTION VECTORS in body frame, using
+//  position-derived bone segments only:
+//
+//      upper-arm     = shoulder → elbow
+//      forearm       = elbow    → wrist
+//      arm extension = shoulder → wrist   ← main arm-posture
+//                                          discriminator
+//      torso         = hips     → chest
+//      shoulder line = L.shldr  → R.shldr
+//      head          = chest    → head
+//
+//  Positions are far less noisy than rotations on Quest 3,
+//  Vector3.Angle is scale-invariant (works with any body
+//  size), and the shoulder→wrist vector responds *directly*
+//  to arm posture because IK co-movement cancels when both
+//  endpoints are on the same arm.
+//
+//  ─── COMPATIBILITY ──────────────────────────────────────────
+//
+//  The JSON format (ReferencePoseSequence / SwingDto) is
+//  UNCHANGED.  V2 reads exactly the same JointPose data that
+//  V1 did — only the cost function is different.  Existing
+//  reference swings score correctly without re-recording.
+//
+//  ─── PRESERVED FROM V1 ──────────────────────────────────────
+//  • DTW + Sakoe-Chiba band
+//  • Pre-allocated flat cost matrix (no per-call alloc)
+//  • Geometric mean of path-cost and joint-deviation scores
+//  • Auto-trim delegation to SwingTrimmer
+//  • Public API: SwingMatcher(), Compare(), SetScoringJoints(),
+//    BandFraction, Sensitivity, AutoTrim
 //
 //  MAX DIMENSIONS
-//  ────────────────────────────────────────────────────────────
 //  MaxFrames = 180 supports captures up to 6 s at 30 fps.
-//  Increase if you record longer swings.
-//  Memory: 180×180×4 bytes = 126 KB — completely negligible.
 // ============================================================
 
 using System;
@@ -62,10 +76,10 @@ namespace BadmintonPoseTracking
         /// <summary>Normalised DTW cost before the exp conversion (debug use).</summary>
         public float NormalisedCost;
 
-        /// <summary>Average per-joint angular deviation (degrees) over the optimal path.</summary>
+        /// <summary>Average per-segment angular deviation (degrees) along the DTW path.</summary>
         public float AvgJointDeg;
 
-        /// <summary>Joints that deviated most on average across the matched path.</summary>
+        /// <summary>Segments that deviated most on average across the matched path.</summary>
         public string[] WeakJoints;
 
         /// <summary>Original player frame count before trimming (-1 if no trim).</summary>
@@ -82,7 +96,7 @@ namespace BadmintonPoseTracking
             string trim = OriginalFrameCount > 0
                 ? $"  Trim={OriginalFrameCount}→{TrimmedFrameCount}f"
                 : string.Empty;
-            return $"Score={Score:F1}  NormCost={NormalisedCost:F3}  AvgJointDeg={AvgJointDeg:F1}°" +
+            return $"Score={Score:F1}  NormCost={NormalisedCost:F3}  AvgSegDeg={AvgJointDeg:F1}°" +
                    $"  Weak=[{string.Join(", ", WeakJoints)}]{trim}";
         }
     }
@@ -102,16 +116,26 @@ namespace BadmintonPoseTracking
 
         /// <summary>
         /// Controls how aggressively the score drops with angular error.
-        /// Units: degrees.  A normalised cost equal to this value → score ~37.
-        /// Lower = stricter grading.  Good range: 20–45.
+        /// Units: degrees.  A normalised cost equal to (NoiseFloor + Sensitivity)
+        /// → score ~37.  Lower = stricter grading.  Good range: 25–50 for V2.
         /// </summary>
-        public float Sensitivity = 45f;
+        public float Sensitivity = 35f;
+
+        /// <summary>
+        /// Angular cost (degrees) treated as "free" before the exp falloff.
+        /// Accounts for Quest 3 Body-mode baseline noise — hips rotation
+        /// jitter and joint position jitter produce ~18–25° of per-frame
+        /// cost even when comparing identical motions.  Without this, the
+        /// achievable ceiling is ~70 even for a perfect swing.
+        ///
+        /// Cost below NoiseFloor → score 100.  Cost above NoiseFloor falls
+        /// off exp(-(cost - NoiseFloor) / Sensitivity) × 100.
+        /// </summary>
+        public float NoiseFloor = 20f;
 
         /// <summary>
         /// When true, the player capture is automatically trimmed to its
-        /// active swing window before DTW comparison.  This eliminates
-        /// idle padding at the start/end of a capture so that only the
-        /// actual movement is scored.
+        /// active swing window before DTW comparison.
         /// </summary>
         public bool AutoTrim = true;
 
@@ -120,61 +144,89 @@ namespace BadmintonPoseTracking
         private const int MaxFrames = 180;
         private readonly float[] _dtw = new float[MaxFrames * MaxFrames];
 
-        // ── Scoring joint arrays (parallel float[] + int[]) ───────────────
+        // ── Segment table ─────────────────────────────────────────────────
         //
-        //    We avoid reading .weight and .joint from ScoringJointEntry
-        //    structs inside the inner loop — that's two field reads per
-        //    joint per frame pair.  Parallel arrays give us tight cache
-        //    access and branch-free indexing.
+        //    Each segment is an (anchor, tip, weight, label) tuple.  We
+        //    compare the body-relative direction vector (tip.pos - anchor.pos)
+        //    between player and reference.  Vector3.Angle gives 0..180°.
+        //
+        //    Weights reflect "how much does this segment say about swing
+        //    posture".  Racket arm dominates.  The total weight is not
+        //    meaningful — only relative ratios matter (we divide at the end).
 
-        private float[]        _weights;       // indexed 0..numJoints-1
-        private int[]          _jointIds;      // (int)TrackedJoint
-        private float          _totalWeight;
-        private int            _numJoints;
-
-        // Per-joint cumulative-deviation accumulators (weak-joint detection)
-        private float[]        _jointDeviation;
-        private int[]          _jointHits;
-
-        // ── Constructor ───────────────────────────────────────────────────
-
-        public SwingMatcher(ScoringJointEntry[] scoringJoints)
+        private struct Segment
         {
-            SetScoringJoints(scoringJoints);
+            public int    from;   // (int)TrackedJoint
+            public int    to;
+            public float  weight;
+            public string label;
         }
 
-        public SwingMatcher() : this(DefaultJoints()) { }
+        //    NOTE ON OVR JOINT POSITIONS
+        //    ─────────────────────────────────────────────────────
+        //    In OVR body tracking:
+        //      RightShoulder.pos  ≈ shoulder socket
+        //      RightUpperArm.pos  ≈ shoulder socket (same point — upper-arm
+        //                            bone's pivot is at its shoulder end)
+        //      RightForearm.pos   = elbow
+        //      RightWrist.pos     = wrist
+        //
+        //    So `Shoulder → UpperArm` is a near-zero-length segment and
+        //    would give unstable directions.  We use:
+        //      UpperArm → Forearm  (upper-arm bone = elbow rel to shoulder)
+        //      Forearm  → Wrist    (forearm bone  = wrist rel to elbow)
+        //      Shoulder → Wrist    (total arm direction = main posture cue)
 
-        public void SetScoringJoints(ScoringJointEntry[] joints)
+        private static readonly Segment[] _segments =
         {
-            _numJoints = joints.Length;
-            _weights       = new float[_numJoints];
-            _jointIds      = new int[_numJoints];
-            _jointDeviation = new float[_numJoints];
-            _jointHits     = new int[_numJoints];
-            _totalWeight   = 0f;
+            // ── Racket arm (RIGHT) — primary signal ─────────────────────
+            // Upper-arm bone direction: shoulder end → elbow
+            new Segment { from = (int)TrackedJoint.RightUpperArm, to = (int)TrackedJoint.RightForearm, weight = 1.5f, label = "R.UpperArm" },
+            // Forearm bone direction: elbow → wrist
+            new Segment { from = (int)TrackedJoint.RightForearm,  to = (int)TrackedJoint.RightWrist,   weight = 1.5f, label = "R.Forearm"  },
+            // TOTAL arm extension: shoulder → wrist.  Strongest "arm up vs
+            // arm down" discriminator — IK co-movement cancels because both
+            // endpoints sit on the same arm and shift together.
+            new Segment { from = (int)TrackedJoint.RightShoulder, to = (int)TrackedJoint.RightWrist,   weight = 2.5f, label = "R.ArmExt"   },
 
-            for (int i = 0; i < _numJoints; i++)
-            {
-                _weights[i]  = joints[i].weight;
-                _jointIds[i] = (int)joints[i].joint;
-                _totalWeight += joints[i].weight;
-            }
-        }
+            // ── Left arm — counter-balance signal ───────────────────────
+            new Segment { from = (int)TrackedJoint.LeftUpperArm,  to = (int)TrackedJoint.LeftForearm, weight = 0.5f, label = "L.UpperArm" },
+            new Segment { from = (int)TrackedJoint.LeftShoulder,  to = (int)TrackedJoint.LeftWrist,   weight = 0.7f, label = "L.ArmExt"   },
 
-        // ── Main entry point ──────────────────────────────────────────────
+            // ── Torso posture ───────────────────────────────────────────
+            // Lean / spine direction
+            new Segment { from = (int)TrackedJoint.Hips,          to = (int)TrackedJoint.Chest,        weight = 0.8f, label = "Torso"      },
+            // Shoulder line — captures upper-body twist vs hips
+            new Segment { from = (int)TrackedJoint.LeftShoulder,  to = (int)TrackedJoint.RightShoulder, weight = 0.6f, label = "Shoulders" },
 
-        /// <summary>
-        /// Compare a player capture against a reference swing.
-        /// Returns a SwingScore — the player capture is not modified.
-        /// When AutoTrim is true, idle padding is stripped from the
-        /// player capture before DTW so only the active movement is scored.
-        /// </summary>
+            // ── Head (HMD is always clean) ──────────────────────────────
+            new Segment { from = (int)TrackedJoint.Chest,         to = (int)TrackedJoint.Head,         weight = 0.4f, label = "Head"       },
+        };
+
+        // Per-segment cumulative-deviation accumulators (for weak-joint report)
+        private readonly float[] _segmentDev  = new float[_segments.Length];
+        private readonly int[]   _segmentHits = new int  [_segments.Length];
+
+        // ── Constructors (API-compatible with V1) ─────────────────────────
+
+        public SwingMatcher() { }
+
+        /// <summary>Legacy V1 constructor.  Scoring joints array is ignored;
+        /// V2 uses a hard-coded segment table.  Kept for API compatibility.</summary>
+        public SwingMatcher(ScoringJointEntry[] _scoringJoints) { }
+
+        /// <summary>Legacy V1 setter.  No-op in V2.</summary>
+        public void SetScoringJoints(ScoringJointEntry[] _scoringJoints) { }
+
+        // ── Main entry points ─────────────────────────────────────────────
+
         public SwingScore Compare(PoseCapture player, PoseCapture reference)
         {
+            // V2 lets the trimmer pick its own default activity joints —
+            // they're tuned for motion detection, not posture scoring.
             PoseCapture trimmed = AutoTrim
                 ? SwingTrimmer.Trim(player, reference.DurationSeconds,
-                                    reference.CaptureRateFps, _jointIds)
+                                    reference.CaptureRateFps)
                 : player;
 
             SwingScore score = CompareFrameArrays(trimmed.Frames, trimmed.FrameCount,
@@ -185,7 +237,6 @@ namespace BadmintonPoseTracking
                 score.OriginalFrameCount = player.FrameCount;
                 score.TrimmedFrameCount  = trimmed.FrameCount;
             }
-
             return score;
         }
 
@@ -193,17 +244,15 @@ namespace BadmintonPoseTracking
         public SwingScore Compare(PoseCapture player, ReferencePoseSequence reference)
         {
             float refDuration = reference.DurationSeconds;
-            float refFps      = reference.captureRateFps > 0
-                ? reference.captureRateFps : 30f;
+            float refFps      = reference.captureRateFps > 0 ? reference.captureRateFps : 30f;
 
             PoseCapture trimmed = AutoTrim
-                ? SwingTrimmer.Trim(player, refDuration, refFps, _jointIds)
+                ? SwingTrimmer.Trim(player, refDuration, refFps)
                 : player;
 
             var refFrames = reference.frames;
             int refCount  = refFrames.Count;
-
-            var refArr = new PoseFrame[refCount];
+            var refArr    = new PoseFrame[refCount];
             for (int i = 0; i < refCount; i++) refArr[i] = refFrames[i];
 
             SwingScore score = CompareFrameArrays(trimmed.Frames, trimmed.FrameCount,
@@ -214,7 +263,6 @@ namespace BadmintonPoseTracking
                 score.OriginalFrameCount = player.FrameCount;
                 score.TrimmedFrameCount  = trimmed.FrameCount;
             }
-
             return score;
         }
 
@@ -230,28 +278,23 @@ namespace BadmintonPoseTracking
             n = Mathf.Min(n, MaxFrames);
             m = Mathf.Min(m, MaxFrames);
 
-            // Band must be at least |n−m| so the path can reach from (0,0) to (n-1,m-1).
-            // Without this, sequences of different lengths produce unreachable endpoints.
+            // Band must be at least |n−m| so the path can reach the endpoint.
             int lengthDiff = Mathf.Abs(n - m);
             int band = Mathf.Max(lengthDiff,
                            Mathf.Max(2, Mathf.RoundToInt(Mathf.Max(n, m) * BandFraction)));
 
-            Debug.Log($"[SwingMatcher] DTW  n={n}  m={m}  band={band}  (diff={lengthDiff})");
+            Debug.Log($"[SwingMatcher V2] DTW  n={n}  m={m}  band={band}  (diff={lengthDiff})");
 
-            // Reset per-joint deviation accumulators
-            for (int i = 0; i < _numJoints; i++)
+            // Reset per-segment deviation accumulators
+            for (int k = 0; k < _segments.Length; k++)
             {
-                _jointDeviation[i] = 0f;
-                _jointHits[i]      = 0;
+                _segmentDev[k]  = 0f;
+                _segmentHits[k] = 0;
             }
 
             // ── Fill DTW matrix ───────────────────────────────────────────
-            //    Using flat index: [i * MaxFrames + j]
-            //    Cells outside the band stay at float.MaxValue.
+            const float INF = float.MaxValue * 0.5f;
 
-            const float INF = float.MaxValue * 0.5f;   // avoid overflow on addition
-
-            // Init first cell
             _dtw[0] = FrameDist(pFrames[0], rFrames[0]);
 
             // First column
@@ -291,161 +334,118 @@ namespace BadmintonPoseTracking
                 for (int j = jMin; j <= jMax; j++)
                 {
                     float cost = FrameDist(pFrames[i], rFrames[j]);
-
-                    float a = _dtw[(i - 1) * MaxFrames + j];       // insertion
-                    float b = _dtw[i       * MaxFrames + (j - 1)]; // deletion
-                    float c = _dtw[(i - 1) * MaxFrames + (j - 1)]; // diagonal (match)
-
-                    // min of three — branchless via sequential Mathf.Min
+                    float a = _dtw[(i - 1) * MaxFrames + j];
+                    float b = _dtw[i       * MaxFrames + (j - 1)];
+                    float c = _dtw[(i - 1) * MaxFrames + (j - 1)];
                     float best = a < b ? a : b;
                     if (c < best) best = c;
-
                     _dtw[i * MaxFrames + j] = best < INF ? cost + best : INF;
                 }
-
-                // Cells outside the band this row
-                for (int j = 0;       j < jMin; j++) _dtw[i * MaxFrames + j] = INF;
-                for (int j = jMax + 1; j < m;  j++) _dtw[i * MaxFrames + j] = INF;
+                for (int j = 0;        j < jMin; j++) _dtw[i * MaxFrames + j] = INF;
+                for (int j = jMax + 1; j < m;    j++) _dtw[i * MaxFrames + j] = INF;
             }
 
-            // ── Traceback to accumulate per-joint deviations ──────────────
-            //
-            //    We walk the optimal path backwards from (n-1, m-1).
-            //    At each cell we call FrameDistDetailed() to update
-            //    the joint deviation accumulators — then build WeakJoints.
-
+            // ── Traceback to accumulate per-segment deviations ────────────
             int pi = n - 1, pj = m - 1;
             int pathLength = 0;
-
             while (pi > 0 || pj > 0)
             {
                 FrameDistDetailed(pFrames[pi], rFrames[pj]);
                 pathLength++;
-
                 if (pi == 0) { pj--; continue; }
                 if (pj == 0) { pi--; continue; }
-
-                float d = _dtw[(pi - 1) * MaxFrames + (pj - 1)];
+                float d   = _dtw[(pi - 1) * MaxFrames + (pj - 1)];
                 float ins = _dtw[(pi - 1) * MaxFrames + pj];
                 float del = _dtw[pi       * MaxFrames + (pj - 1)];
-
                 if (d <= ins && d <= del) { pi--; pj--; }
                 else if (ins <= del)      { pi--; }
                 else                      { pj--; }
             }
-            // Include the origin cell
             FrameDistDetailed(pFrames[0], rFrames[0]);
             pathLength++;
 
             // ── Compute final score ───────────────────────────────────────
             //
-            //    TWO independent signals, combined via geometric mean:
-            //
-            //    1. dtwScore  — path-alignment quality (timing-invariant).
-            //       Can be artificially inflated when BodyFrame normalization
-            //       is imperfect or when the DTW path degenerates (many-to-one
-            //       mappings through accidental low-cost cells).
-            //
-            //    2. jointScore — average per-joint angular deviation across the
-            //       optimal path (from the traceback above).  Directly measures
-            //       whether each joint ended up in the right place, regardless
-            //       of how DTW chose to align the sequences.
-            //
-            //    Geometric mean: sqrt(a * b).  If EITHER metric says "wrong
-            //    swing," the combined score reflects it.  A wrong swing that
-            //    somehow fools the DTW path (dtwScore=97%) but shows 80°
-            //    joint deviations (jointScore≈2%) yields sqrt(97*2) ≈ 14%.
+            //    Two independent signals combined via geometric mean:
+            //      1. dtwScore   — path-alignment quality (timing-invariant).
+            //      2. jointScore — weighted-average per-segment deviation
+            //                       over the optimal path.
+            //    A wrong swing that fools the DTW path will still show high
+            //    segment deviations, so the geometric mean catches it.
 
             float rawCost  = _dtw[(n - 1) * MaxFrames + (m - 1)];
             float normCost = rawCost / Mathf.Max(1, pathLength);
-            float dtwScore = Mathf.Exp(-normCost / Sensitivity) * 100f;
+            float dtwEff   = Mathf.Max(0f, normCost - NoiseFloor);
+            float dtwScore = Mathf.Exp(-dtwEff / Sensitivity) * 100f;
 
-            // Average per-joint deviation (degrees) over the traceback path
-            float totalDev   = 0f;
-            int   trackedJointCount = 0;
-            for (int k = 0; k < _numJoints; k++)
+            // Weighted average of per-segment mean deviations
+            float totalWDev = 0f;
+            float totalW    = 0f;
+            for (int k = 0; k < _segments.Length; k++)
             {
-                if (_jointHits[k] > 0)
-                {
-                    totalDev += _jointDeviation[k] / _jointHits[k];
-                    trackedJointCount++;
-                }
+                if (_segmentHits[k] == 0) continue;
+                float segMean = _segmentDev[k] / _segmentHits[k];
+                totalWDev += segMean * _segments[k].weight;
+                totalW    += _segments[k].weight;
             }
-            float avgJointDeg = trackedJointCount > 0 ? totalDev / trackedJointCount : 0f;
-            float jointScore  = Mathf.Exp(-avgJointDeg / Sensitivity) * 100f;
+            float avgSegDeg  = totalW > 0f ? totalWDev / totalW : 0f;
+            float jointEff   = Mathf.Max(0f, avgSegDeg - NoiseFloor);
+            float jointScore = Mathf.Exp(-jointEff / Sensitivity) * 100f;
 
-            // Geometric mean — amplifies real differences now that FrameDist
-            // includes position-direction (not just rotation).
+            // Geometric mean — amplifies real differences
             float score = Mathf.Sqrt(dtwScore * jointScore);
 
-            Debug.Log($"[SwingMatcher] dtwScore={dtwScore:F1}  jointScore={jointScore:F1}  " +
-                      $"avgDev={avgJointDeg:F1}°  normCost={normCost:F3}  " +
+            Debug.Log($"[SwingMatcher V2] dtwScore={dtwScore:F1}  jointScore={jointScore:F1}  " +
+                      $"avgSegDev={avgSegDeg:F1}°  normCost={normCost:F1}°  " +
+                      $"floor={NoiseFloor:F0}°  sens={Sensitivity:F0}°  pathLen={pathLength}  " +
                       $"→ final={score:F1}");
 
-            // ── Identify weak joints ──────────────────────────────────────
-
-            const int MaxWeakJoints = 3;
+            // ── Identify weak segments ────────────────────────────────────
+            const int MaxWeakSegs = 3;
             int weakCount = 0;
-            string[] weak = new string[MaxWeakJoints];
-
-            // Find the top-N joints by average deviation (simple selection sort)
-            bool[] used = new bool[_numJoints];
-            for (int w = 0; w < MaxWeakJoints; w++)
+            string[] weak = new string[MaxWeakSegs];
+            bool[] used = new bool[_segments.Length];
+            for (int w = 0; w < MaxWeakSegs; w++)
             {
                 float maxDev = 0f;
                 int   maxIdx = -1;
-                for (int k = 0; k < _numJoints; k++)
+                for (int k = 0; k < _segments.Length; k++)
                 {
-                    if (used[k]) continue;
-                    float avg = _jointHits[k] > 0
-                        ? _jointDeviation[k] / _jointHits[k] : 0f;
+                    if (used[k] || _segmentHits[k] == 0) continue;
+                    float avg = _segmentDev[k] / _segmentHits[k];
                     if (avg > maxDev) { maxDev = avg; maxIdx = k; }
                 }
-                if (maxIdx < 0 || maxDev < 10f) break;  // < 10° average = not noteworthy
+                if (maxIdx < 0 || maxDev < 15f) break;  // < 15° = not noteworthy
                 used[maxIdx] = true;
-                weak[weakCount++] = $"{(TrackedJoint)_jointIds[maxIdx]} ({maxDev:F0}°)";
+                weak[weakCount++] = $"{_segments[maxIdx].label} ({maxDev:F0}°)";
             }
-
             var finalWeak = new string[weakCount];
             Array.Copy(weak, finalWeak, weakCount);
 
             return new SwingScore
             {
-                Score           = score,
-                NormalisedCost  = normCost,
-                AvgJointDeg     = avgJointDeg,
-                WeakJoints      = finalWeak
+                Score          = score,
+                NormalisedCost = normCost,
+                AvgJointDeg    = avgSegDeg,
+                WeakJoints     = finalWeak
             };
         }
 
-        // ── Per-frame distance ─────────────────────────────────────────────
-        //
-        //    All joint rotations are expressed relative to the body (pelvis)
-        //    frame so the score is orientation-independent — the player does
-        //    not need to face the same direction as the reference.
+        // ══════════════════════════════════════════════════════════════════
+        //  FRAME DISTANCE  (V2 — bone-direction in body frame)
+        // ══════════════════════════════════════════════════════════════════
 
-        // ── Reference frame ───────────────────────────────────────────────
+        // ── Body frame (unchanged from V1) ────────────────────────────────
         //
-        //    PRIMARY: Hips.rotation (OVRBody Body mode tracks the pelvis).
-        //    The pelvis is the most stable anchor — it does NOT co-move with
-        //    the arm.  The old shoulder-line approach was corrupted because
-        //    raising the racket arm shifts the shoulder joint position, which
-        //    rotated the derived "shoulder frame" in the same direction as the
-        //    arm swing.  FrameDist then cancelled out the very differences we
-        //    were trying to measure (normCost ≈ 0.4 even when WeakJoints
-        //    showed 80–105° deviations).
-        //
-        //    FALLBACK 1: shoulder line (still better than nothing if hips lost)
-        //    FALLBACK 2: HMD yaw projection (always available via HMD)
+        //    Pelvis rotation is the most stable anchor on Quest 3 Body-mode.
+        //    Falls back to a synthetic shoulder frame, then HMD yaw.
 
         private static Quaternion BodyFrame(in PoseFrame f)
         {
-            // ── Primary: pelvis rotation ───────────────────────────────────
             var hips = f.GetJoint(TrackedJoint.Hips);
             if (hips.isTracked)
                 return hips.rotation;
 
-            // ── Fallback 1: synthetic torso frame from shoulder positions ──
             var ls = f.GetJoint(TrackedJoint.LeftShoulder);
             var rs = f.GetJoint(TrackedJoint.RightShoulder);
             if (ls.isTracked && rs.isTracked)
@@ -463,7 +463,6 @@ namespace BadmintonPoseTracking
                 }
             }
 
-            // ── Fallback 2: HMD yaw (always available) ────────────────────
             var head = f.GetJoint(TrackedJoint.Head);
             if (head.isTracked)
             {
@@ -476,138 +475,101 @@ namespace BadmintonPoseTracking
             return Quaternion.identity;
         }
 
+        // ── Penalty constants for missing / degenerate data ───────────────
+        // Chosen to be *less* severe than a genuinely wrong swing (~90°+)
+        // but non-zero so the optimizer doesn't reward lost tracking.
+        private const float PenaltyUntracked = 40f;
+        private const float PenaltyDegenerate = 25f;
+
+        /// <summary>
+        /// Per-frame cost = weighted-average segment angle in degrees.
+        /// Value range is [0, 180]; typical good frames 10–25°, bad 40–90°.
+        /// </summary>
         private float FrameDist(in PoseFrame a, in PoseFrame b)
         {
             Quaternion aInv = Quaternion.Inverse(BodyFrame(a));
             Quaternion bInv = Quaternion.Inverse(BodyFrame(b));
 
-            // Body-relative position anchors (hips)
-            var aHips = a.GetJoint(TrackedJoint.Hips);
-            var bHips = b.GetJoint(TrackedJoint.Hips);
-            bool canDoPos = aHips.isTracked && bHips.isTracked;
-
-            float totalCost   = 0f;
+            float totalCost = 0f;
             float totalWeight = 0f;
-            float rotSat      = 110f;  // rotation saturation (degrees)
-            float posSat      = 120f;  // position-direction saturation (degrees)
-            float posBlend    = 0.5f;  // how much position-direction contributes vs rotation
 
-            for (int k = 0; k < _numJoints; k++)
+            for (int k = 0; k < _segments.Length; k++)
             {
-                var aj = a.joints[_jointIds[k]];
-                var bj = b.joints[_jointIds[k]];
-                if (!aj.isTracked || !bj.isTracked)
+                Segment seg = _segments[k];
+                var af = a.joints[seg.from]; var at = a.joints[seg.to];
+                var bf = b.joints[seg.from]; var bt = b.joints[seg.to];
+
+                float angle;
+                if (!af.isTracked || !at.isTracked || !bf.isTracked || !bt.isTracked)
                 {
-                    totalCost   += _weights[k] * 0.5f;
-                    totalWeight += _weights[k];
-                    continue;
+                    angle = PenaltyUntracked;
                 }
-
-                // ── Rotation cost (existing) ──
-                float rotAngle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
-                float rotT     = rotAngle < rotSat ? rotAngle / rotSat : 1f;
-
-                // ── Position-direction cost (new) ──
-                // "Where is this joint relative to hips?" is far more
-                // discriminating than rotation alone.  Arm up vs arm down
-                // can have similar wrist rotations but wildly different
-                // direction vectors from the pelvis.
-                float posT = 0f;
-                if (canDoPos)
+                else
                 {
-                    Vector3 aDirWorld = aj.position - aHips.position;
-                    Vector3 bDirWorld = bj.position - bHips.position;
+                    Vector3 aDirWorld = at.position - af.position;
+                    Vector3 bDirWorld = bt.position - bf.position;
 
-                    if (aDirWorld.sqrMagnitude > 0.001f && bDirWorld.sqrMagnitude > 0.001f)
+                    if (aDirWorld.sqrMagnitude < 1e-6f || bDirWorld.sqrMagnitude < 1e-6f)
                     {
-                        // Rotate into body-local space so facing direction cancels out
-                        Vector3 aDirLocal = aInv * aDirWorld;
-                        Vector3 bDirLocal = bInv * bDirWorld;
-                        float posAngle = Vector3.Angle(aDirLocal, bDirLocal);
-                        posT = posAngle < posSat ? posAngle / posSat : 1f;
+                        angle = PenaltyDegenerate;
+                    }
+                    else
+                    {
+                        // Rotate into body-local space so facing direction cancels
+                        Vector3 aDir = aInv * aDirWorld;
+                        Vector3 bDir = bInv * bDirWorld;
+                        angle = Vector3.Angle(aDir, bDir);   // [0, 180]
                     }
                 }
 
-                // Blend rotation + position costs
-                float t = canDoPos
-                    ? (1f - posBlend) * rotT + posBlend * posT
-                    : rotT;
-
-                totalCost   += t * _weights[k];
-                totalWeight += _weights[k];
+                totalCost   += angle * seg.weight;
+                totalWeight += seg.weight;
             }
 
-            return totalWeight > 0f ? (totalCost / totalWeight) * 90f : 0f;
+            return totalWeight > 0f ? totalCost / totalWeight : 0f;
         }
 
         /// <summary>
-        /// Same as FrameDist but also accumulates per-joint deviations
-        /// into _jointDeviation / _jointHits.  Called only during traceback.
+        /// Same computation as FrameDist, but accumulates per-segment
+        /// angles into _segmentDev / _segmentHits for the weak-joint
+        /// report.  Called only along the DTW traceback path.
         /// </summary>
         private void FrameDistDetailed(in PoseFrame a, in PoseFrame b)
         {
             Quaternion aInv = Quaternion.Inverse(BodyFrame(a));
             Quaternion bInv = Quaternion.Inverse(BodyFrame(b));
 
-            var aHips = a.GetJoint(TrackedJoint.Hips);
-            var bHips = b.GetJoint(TrackedJoint.Hips);
-            bool canDoPos = aHips.isTracked && bHips.isTracked;
-
-            for (int k = 0; k < _numJoints; k++)
+            for (int k = 0; k < _segments.Length; k++)
             {
-                var aj = a.joints[_jointIds[k]];
-                var bj = b.joints[_jointIds[k]];
-                if (!aj.isTracked || !bj.isTracked)
+                Segment seg = _segments[k];
+                var af = a.joints[seg.from]; var at = a.joints[seg.to];
+                var bf = b.joints[seg.from]; var bt = b.joints[seg.to];
+
+                float angle;
+                if (!af.isTracked || !at.isTracked || !bf.isTracked || !bt.isTracked)
                 {
-                    _jointDeviation[k] += 75f;
-                    _jointHits[k]++;
-                    continue;
+                    angle = PenaltyUntracked;
                 }
-
-                float rotAngle = Quaternion.Angle(aInv * aj.rotation, bInv * bj.rotation);
-
-                float posAngle = 0f;
-                if (canDoPos)
+                else
                 {
-                    Vector3 aDirWorld = aj.position - aHips.position;
-                    Vector3 bDirWorld = bj.position - bHips.position;
-                    if (aDirWorld.sqrMagnitude > 0.001f && bDirWorld.sqrMagnitude > 0.001f)
+                    Vector3 aDirWorld = at.position - af.position;
+                    Vector3 bDirWorld = bt.position - bf.position;
+
+                    if (aDirWorld.sqrMagnitude < 1e-6f || bDirWorld.sqrMagnitude < 1e-6f)
                     {
-                        Vector3 aDirLocal = aInv * aDirWorld;
-                        Vector3 bDirLocal = bInv * bDirWorld;
-                        posAngle = Vector3.Angle(aDirLocal, bDirLocal);
+                        angle = PenaltyDegenerate;
+                    }
+                    else
+                    {
+                        Vector3 aDir = aInv * aDirWorld;
+                        Vector3 bDir = bInv * bDirWorld;
+                        angle = Vector3.Angle(aDir, bDir);
                     }
                 }
 
-                // Blend to match FrameDist
-                float blended = canDoPos ? 0.5f * rotAngle + 0.5f * posAngle : rotAngle;
-                _jointDeviation[k] += blended;
-                _jointHits[k]++;
+                _segmentDev[k]  += angle;
+                _segmentHits[k] += 1;
             }
         }
-
-        // ── Default scoring joints ─────────────────────────────────────────
-
-        private static ScoringJointEntry[] DefaultJoints() => new ScoringJointEntry[]
-        {
-            // Body tracking mode gives us: shoulders + arms + head only.
-            // Reference frame is derived from hips — see BodyFrame().
-
-            // Both shoulders — stable anchors
-            new(TrackedJoint.RightShoulder,  1.5f),
-            new(TrackedJoint.LeftShoulder,   1.0f),
-
-            // Right arm — the racket arm (reduced from 2.5 — noisy on Quest 3)
-            new(TrackedJoint.RightScapula,   1.0f),
-            new(TrackedJoint.RightUpperArm,  1.8f),
-            new(TrackedJoint.RightForearm,   1.8f),
-            new(TrackedJoint.RightWrist,     1.2f),
-
-            // Left arm — counter-balance signal
-            new(TrackedJoint.LeftUpperArm,   0.8f),
-
-            // Head from HMD — always clean data, reward looking at the birdie
-            new(TrackedJoint.Head,           0.8f),
-        };
     }
 }
