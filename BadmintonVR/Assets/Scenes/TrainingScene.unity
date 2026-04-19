@@ -20419,7 +20419,7 @@ MonoBehaviour:
   referenceBoneColor: {r: 0.2, g: 0.6, b: 1, a: 0.4}
   devSwingName: swing_01
   dtwBandFraction: 0.2
-  matchSensitivity: 30
+  matchSensitivity: 10.9
   autoTrimCapture: 1
   passThreshold: 60
   maxRecordingDuration: 8
