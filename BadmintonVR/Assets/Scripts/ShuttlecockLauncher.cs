@@ -1,3 +1,4 @@
+using Unity.VisualScripting;
 using UnityEngine;
 
 [RequireComponent(typeof(Renderer))]
@@ -16,6 +17,13 @@ public class ShuttlecockLauncher : MonoBehaviour
 
     [Header("Parameters")]
     public float despawnTime = 10f;
+
+    [Header("Test")]
+    public bool autoLaunch = false;
+    [Range(0.1f, 2f)]
+    public float launchInterval = 1f;
+
+    bool wasAutoLaunch = false;
 
     void Start()
     {
@@ -37,6 +45,15 @@ public class ShuttlecockLauncher : MonoBehaviour
         float yaw = Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg;
 
         rotatingPart.localRotation = Quaternion.Euler(0f, yaw - 90, -pitch);
+
+        if (autoLaunch != wasAutoLaunch)
+        {
+            wasAutoLaunch = autoLaunch;
+            if (autoLaunch)
+                InvokeRepeating(nameof(LaunchShuttlecock), 0f, launchInterval);
+            else
+                CancelInvoke(nameof(LaunchShuttlecock));
+        }
     }
 
     /// <summary>

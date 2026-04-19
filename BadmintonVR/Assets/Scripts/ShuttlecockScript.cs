@@ -10,7 +10,6 @@ public class ShuttlecockScript : MonoBehaviour
     [Header("Aerodynamism")]
     public float liftCoefficient = 0.1f;
     public float autoRotateStrength = 8f;
-    public float mass = 1f;
 
     [Header("Stabilisation")]
     public float angularDamping = 3f;
@@ -48,7 +47,7 @@ public class ShuttlecockScript : MonoBehaviour
         if (speed < 1f) return;
 
         // Drag proportional to speed
-        Vector3 drag = data.dragCoefficient * speed * speed * mass * -velocity.normalized;
+        Vector3 drag = data.dragCoefficient * speed * speed * rb.mass * -velocity.normalized;
         rb.AddForce(drag, ForceMode.Force);
     }
 
