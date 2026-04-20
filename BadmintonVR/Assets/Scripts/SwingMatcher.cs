@@ -82,7 +82,7 @@ namespace BadmintonPoseTracking
         /// <summary>Segments that deviated most on average across the matched path.</summary>
         public string[] WeakJoints;
 
-        /// <summary>Original player frame count before trimming (-1 if no trim).</summary>
+        /// Original player frame count before trimming (-1 if no trim).
         public int OriginalFrameCount = -1;
 
         /// <summary>Frame count actually sent into DTW (after trimming).</summary>
