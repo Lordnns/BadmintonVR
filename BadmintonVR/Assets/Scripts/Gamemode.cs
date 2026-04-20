@@ -23,7 +23,8 @@ public class Gamemode : MonoBehaviour
     private float precisionScore = 0; // Score for the precision on the target zone
     private float poseScore = 0; // Pose compared to our 'ideal' pose
     private Queue<float> scores = new Queue<float>(); // circular buffer, max 3
-
+    private int nbSwings = 0;
+    
     [Header("Launcher")] [Tooltip("Launcher de volants")]
     public ShuttlecockLauncher launcher;
 
@@ -76,6 +77,7 @@ public class Gamemode : MonoBehaviour
             skipRoundAction.action.performed += OnSkipRound;
         }
     }
+    
 
     void OnDisable()
     {
@@ -86,6 +88,7 @@ public class Gamemode : MonoBehaviour
 
     public void OnSkipRound(InputAction.CallbackContext ctx)
     {
+        timer.ResetTimer();
         scores.Clear();
         currentSwingIndex++;
 
@@ -184,24 +187,29 @@ public class Gamemode : MonoBehaviour
 
     private void OnPoseScored(SwingScore score)
     {
-        poseScore = score.Score;
+        if (hasHitRacket)
+        {
+            poseScore = score.Score;
+    
+            // Combined score for this attempt
+            roundScore = (precisionScore + poseScore) / 2.0f;
+            playerScore += roundScore;
+            nbSwings++;
+            
+            coordinator.ShowReplay();
+            coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
+            timer.Pause();
+            ui?.SetPoseScore(poseScore);
+            ui?.SetTargetScore(precisionScore);
+            ui?.SetTotalScore(roundScore);
+            ui?.SetTimeLeft(timer.timeLeft);
+            ui?.SetShotsValidated(3);
+            ui?.SetReferenceImage(roundScore >= 1);
+            timer.gameObject.SetActive(false);
+            ui?.Show();
 
-        // Combined score for this attempt
-        roundScore = precisionScore;
-
-        coordinator.ShowReplay();
-        coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
-        timer.Pause();
-        ui?.SetPoseScore(poseScore);
-        ui?.SetTargetScore(precisionScore);
-        ui?.SetTotalScore(roundScore);
-        ui?.SetTimeLeft(timer.timeLeft);
-        ui?.SetShotsValidated(3);
-        ui?.SetReferenceImage(roundScore >= 1);
-        timer.gameObject.SetActive(false);
-        ui?.Show();
-
-        StartCoroutine(WaitAndExecute(3.0f, ProcessScore));
+            StartCoroutine(WaitAndExecute(3.0f, ProcessScore));
+        }
     }
 
     void ProcessScore()
@@ -212,17 +220,8 @@ public class Gamemode : MonoBehaviour
 
         if (CheckLastThreeScores())
         {
-            // Add scores to player score
-            playerScore += scores.Dequeue();
-            playerScore += scores.Dequeue();
-            playerScore += scores.Dequeue();
-            currentSwingIndex++;
-
-            if (currentSwingIndex >= swingsAndRelativePos.Count)
-            {
-                EndGameProcess();
-                return;
-            }
+            OnSkipRound(default);
+            return;
         }
 
         continueNextSwingAction.action.performed += StartTrial;
@@ -256,7 +255,7 @@ public class Gamemode : MonoBehaviour
     private void EndGameProcess()
     {
         GameSettings.duration = Time.time - startTime;
-        GameSettings.score = playerScore;
+        GameSettings.score = playerScore / nbSwings;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
     }
 }
