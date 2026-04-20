@@ -15,8 +15,8 @@ public class ShuttlecockLauncher : MonoBehaviour
     [Header("Actions")]
     public float launch;
 
-    [Header("Parameters")]
-    public float despawnTime = 10f;
+    [Header("Physics")]
+    public bool useSinePhysics = true;
 
     [Header("Test")]
     public bool autoLaunch = false;
@@ -24,6 +24,7 @@ public class ShuttlecockLauncher : MonoBehaviour
     public float launchInterval = 1f;
 
     bool wasAutoLaunch = false;
+    float previousLaunchInterval;
 
     void Start()
     {
@@ -37,20 +38,50 @@ public class ShuttlecockLauncher : MonoBehaviour
         // Aim for target
         Vector3 cannonPos = spawnPoint.position;
         Vector3 delta = target.position - cannonPos;
-
-        float X = new Vector2(delta.x, delta.z).magnitude;
-        float Y = delta.y;
-
-        float pitch = SolvePitch(data.initialSpeed, X, Y, data.dragCoefficient, -Physics.gravity.y);
         float yaw = Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg;
 
-        rotatingPart.localRotation = Quaternion.Euler(0f, yaw - 90, -pitch);
+        float pitch;
 
+        if (useSinePhysics)
+        {
+            Vector3 horizontal = target.position - spawnPoint.position;
+            horizontal.y = 0f;
+
+            float horizontalDist = horizontal.magnitude;
+            float duration = horizontalDist / data.initialSpeed;
+
+            float vx = horizontal.magnitude / duration;
+            float vy = Mathf.PI * data.height / duration;
+
+            pitch = Mathf.Atan2(vy, vx) * Mathf.Rad2Deg;
+            rotatingPart.localRotation = Quaternion.Euler(0f, yaw - 90, pitch - 90);
+        }
+        else
+        {
+            float X = new Vector2(delta.x, delta.z).magnitude;
+            float Y = delta.y;
+
+            pitch = SolvePitch(data.initialSpeed, X, Y, data.dragCoefficient, -Physics.gravity.y);
+            rotatingPart.localRotation = Quaternion.Euler(0f, yaw - 90, -pitch);
+        }
+
+        // Change launch interval if needed
+        if (autoLaunch && launchInterval != previousLaunchInterval)
+        {
+            previousLaunchInterval = launchInterval;
+            CancelInvoke(nameof(LaunchShuttlecock));
+            InvokeRepeating(nameof(LaunchShuttlecock), 0f, launchInterval);
+        }
+
+        // Detect auto-launch toggle
         if (autoLaunch != wasAutoLaunch)
         {
             wasAutoLaunch = autoLaunch;
             if (autoLaunch)
+            {
+                previousLaunchInterval = launchInterval;
                 InvokeRepeating(nameof(LaunchShuttlecock), 0f, launchInterval);
+            }
             else
                 CancelInvoke(nameof(LaunchShuttlecock));
         }
@@ -70,10 +101,22 @@ public class ShuttlecockLauncher : MonoBehaviour
 
         sc.transform.SetParent(null);
 
-        Rigidbody rb = sc.GetComponent<Rigidbody>();
-        rb.linearVelocity = spawnPoint.forward * data.initialSpeed;
+        Vector3 horizontal = target.position - spawnPoint.position;
+        horizontal.y = 0f;
 
-        Destroy(sc, despawnTime);
+        float horizontalDist = horizontal.magnitude;
+        float duration = horizontalDist / data.initialSpeed;
+
+        ShuttlecockScript script = sc.GetComponent<ShuttlecockScript>();
+        script.Initialize(useSinePhysics, spawnPoint, target, duration, data.height);
+
+        if (!useSinePhysics)
+        {
+            Rigidbody rb = sc.GetComponent<Rigidbody>();
+            rb.linearVelocity = spawnPoint.forward * data.initialSpeed;
+        }
+
+        Destroy(sc, data.despawnTime);
     }
 
     // Calculation methods

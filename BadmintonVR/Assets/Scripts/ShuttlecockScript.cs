@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -7,37 +8,102 @@ public class ShuttlecockScript : MonoBehaviour
 {
     [SerializeField] ShuttlecockData data;
 
-    [Header("Aerodynamism")]
-    public float liftCoefficient = 0.1f;
-    public float autoRotateStrength = 8f;
-
-    [Header("Stabilisation")]
-    public float angularDamping = 3f;
-
-    private Rigidbody rb;
-    
     [Header("Sol")]
     [Tooltip("A touché le sol")]
     public bool hasTouchedGround = false;
 
     public UnityEvent OnShuttlecockLanded;
     public UnityEvent OnRacketHit;
-    
-    
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+
+    private Rigidbody rb;
+
+    // Physics mode: true for sine-based, false for drag-based
+    bool useSinePhysics = true;
+    Vector3 posA;
+    Vector3 posB;
+    float duration;
+    float height;
+
+    void Awake()
     {
         rb = GetComponent<Rigidbody>();
         rb.mass = data.shuttlecockMass;
-        rb.useGravity = true;
-        rb.angularDamping = angularDamping;
+        rb.angularDamping = data.angularDamping;
+    }
+
+    // On instantiation, initialize with either sine physics or real physics
+    public void Initialize(bool useSine, Transform a, Transform b, float dur, float h)
+    {
+        useSinePhysics = useSine;
+        posA = a.position;
+        posB = b.position;
+        duration = dur;
+        height = h;
+
+        if (useSinePhysics)
+            StartSinePhysics();
+        else
+            StartRealPhysics();
     }
 
     // Update is called once per fixed frame
     void FixedUpdate()
     {
-        ApplyAerodynamicDrag();
-        ApplyAutoOrientation();
+        if (!useSinePhysics)
+        {
+            ApplyAerodynamicDrag();
+            ApplyAutoOrientation();
+        }
+    }
+
+    // Sine physics
+    void StartSinePhysics()
+    {
+        rb.isKinematic = true;
+        rb.useGravity = false;
+        StartCoroutine(MoveInSineCurve());
+    }
+
+    IEnumerator MoveInSineCurve()
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            // Position
+            float t = elapsed / duration;
+            Vector3 currentPos = Vector3.Lerp(posA, posB, t);
+            currentPos.y += Mathf.Sin(Mathf.PI * t) * height;
+
+            // Orientation
+            Vector3 nextPos = Vector3.Lerp(posA, posB, t + 0.01f);
+            nextPos.y += Mathf.Sin(Mathf.PI * (t + 0.01f)) * height;
+            Vector3 direction = (nextPos - currentPos).normalized;
+            if (direction != Vector3.zero)
+                transform.rotation = Quaternion.LookRotation(direction);
+
+            transform.position = currentPos;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        transform.position = posB;
+        SwitchToRealPhysics();
+    }
+
+    void StartRealPhysics()
+    {
+        rb.isKinematic = false;
+        rb.useGravity = true;
+    }
+
+    public void SwitchToRealPhysics()
+    {
+        if (!useSinePhysics) return;
+        useSinePhysics = false;
+        StopAllCoroutines();
+        // Donne une vitesse initiale basée sur la direction vers B
+        rb.isKinematic = false;
+        rb.useGravity = true;
+        rb.linearVelocity = (posB - transform.position).normalized * data.initialSpeed;
     }
 
     void ApplyAerodynamicDrag()
@@ -65,6 +131,7 @@ public class ShuttlecockScript : MonoBehaviour
         if (other.CompareTag("Ground") || other.GetComponent<TargetZone>())
         {
             hasTouchedGround = true;
+            SwitchToRealPhysics();
             if (Gamemode.Instance != null)
             {
                 Gamemode.Instance.OnShuttlecockLanded(); 
@@ -77,6 +144,7 @@ public class ShuttlecockScript : MonoBehaviour
         Debug.Log($"[Shuttlecock] hit object named: {other.gameObject.name} with Tag: {other.gameObject.tag}");
         if (other.gameObject.CompareTag("RacketHead"))
         {
+            SwitchToRealPhysics();
             Gamemode.Instance.OnRacketHit(); 
         }
     }
