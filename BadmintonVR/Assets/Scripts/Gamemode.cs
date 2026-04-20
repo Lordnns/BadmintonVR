@@ -203,7 +203,7 @@ public class Gamemode : MonoBehaviour
             ui?.SetTargetScore(precisionScore);
             ui?.SetTotalScore(roundScore);
             ui?.SetTimeLeft(timer.timeLeft);
-            ui?.SetShotsValidated(3);
+            ui?.SetShotsValidated(GetValidatedShots());
             ui?.SetReferenceImage(roundScore >= 1);
             timer.gameObject.SetActive(false);
             ui?.Show();
@@ -251,6 +251,20 @@ public class Gamemode : MonoBehaviour
         return true;
     }
 
+
+    private int GetValidatedShots()
+    {
+        int count = 0;
+        foreach (var score in scores)
+        {
+            if (score > scoreThreshold)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+    
     // COMPLETED CHALLENGE LOGIC
     private void EndGameProcess()
     {

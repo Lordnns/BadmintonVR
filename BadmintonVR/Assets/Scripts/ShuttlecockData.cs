@@ -4,7 +4,7 @@ using UnityEngine;
 public class ShuttlecockData : ScriptableObject
 {
     [Header("Global speed")]
-    [Range(5f, 15f)]
+    [Range(5f, 20f)]
     public float initialSpeed = 10f;
 
     [Header("Unity Physics")]

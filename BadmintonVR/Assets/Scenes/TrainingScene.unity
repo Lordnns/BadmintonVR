@@ -1356,7 +1356,7 @@ Transform:
   m_GameObject: {fileID: 300651897}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.9, y: 0, z: -0.37}
+  m_LocalPosition: {x: 0.9, y: 0, z: 0.107}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -4920,7 +4920,7 @@ Transform:
   m_GameObject: {fileID: 704775867}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.18785354, z: -0, w: 0.9821971}
-  m_LocalPosition: {x: 7.886, y: 0.875, z: -9.389}
+  m_LocalPosition: {x: 7.59, y: 0.5, z: -9.51}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6666,8 +6666,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1031113216}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.9396927, z: 0, w: 0.34202018}
-  m_LocalPosition: {x: 7.73, y: 0.5, z: -6.92}
+  m_LocalRotation: {x: 0, y: 0.71975803, z: 0, w: 0.6942251}
+  m_LocalPosition: {x: 7.63, y: 0.5, z: -7.27}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6840,8 +6840,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RacketSweetSpotOval
   stringPlane: 1
   stringsCollider: {fileID: 1767601527}
-  baseRestingBounce: 3
-  swingPowerTransfer: 1.05
+  baseRestingBounce: 1
+  swingPowerTransfer: 0.5
   maxSweetSpotMultiplier: 1.5
   minSweetSpotMultiplier: 0.4
   radiusWidth: 1.56
@@ -7318,7 +7318,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Type de tir : Smash'
+  m_text: 'Tir attendu : Smash'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -10778,8 +10778,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1519360881}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.2, y: 0, z: -0.594}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.8999999, y: 0, z: 0.10699999}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -12129,7 +12129,7 @@ Transform:
   m_GameObject: {fileID: 1702902139}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.335, y: 1.649, z: -0.189}
+  m_LocalPosition: {x: -0.335, y: 1.649, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -12160,7 +12160,7 @@ Transform:
   m_GameObject: {fileID: 1705961057}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.788, z: -0.189}
+  m_LocalPosition: {x: 0, y: 1.788, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -12201,8 +12201,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1718315446}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.9, y: 0, z: -0.9}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -0.8999996, y: 0, z: -0.56000006}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -21901,6 +21901,10 @@ PrefabInstance:
       propertyPath: target
       value: 
       objectReference: {fileID: 1173387971}
+    - target: {fileID: 7420981160017287106, guid: 72e4f99dadd3bf04e8031f7293463ac0, type: 3}
+      propertyPath: useSinePhysics
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
