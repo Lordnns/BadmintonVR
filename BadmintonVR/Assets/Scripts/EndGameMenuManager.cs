@@ -21,6 +21,7 @@ public class EndGameMenuManager : MonoBehaviour
     public void SetScoreText()
     {
         float score = GameSettings.score;
+        Debug.Log("Score end game menu : " + score);
         if (scoreText != null)
             scoreText.text = "Score: " + score.ToString("F2");
     }

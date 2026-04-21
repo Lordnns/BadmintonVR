@@ -5769,7 +5769,7 @@ GameObject:
   - component: {fileID: 982352857}
   - component: {fileID: 982352856}
   m_Layer: 5
-  m_Name: Text (TMP) (1)
+  m_Name: scoreText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -11318,7 +11318,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d9f949fb7bc3520469752efa2d63282e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EndGameMenuManager
-  scoreText: {fileID: 0}
+  scoreText: {fileID: 982352856}
   timeText: {fileID: 1720947502}
 --- !u!4 &1666527762 stripped
 Transform:
@@ -11754,7 +11754,7 @@ GameObject:
   - component: {fileID: 1720947503}
   - component: {fileID: 1720947502}
   m_Layer: 5
-  m_Name: Text (TMP) (2)
+  m_Name: TimeText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

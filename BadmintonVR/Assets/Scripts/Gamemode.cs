@@ -157,6 +157,7 @@ public class Gamemode : MonoBehaviour
     {
         continueNextSwingAction.action.performed -= HideUIAndPreProcess;
         coordinator.HideReferencePreview();
+        coordinator.HidePlayerReplay();
         launcher.target.position = swingsAndRelativePos[currentSwingIndex].relativePos.position;
         StartCoroutine(WaitAndExecute(0.03f, StartLaunch));
     }
@@ -191,6 +192,8 @@ public class Gamemode : MonoBehaviour
     {
         if (hasHitRacket)
         {
+            nbSwings++;
+            
             poseScore = score.Score;
     
             // Combined score for this attempt
@@ -201,8 +204,6 @@ public class Gamemode : MonoBehaviour
                 scores.Enqueue(roundScore);
                 playerScore += roundScore;
             }
-            nbSwings++;
-            
             coordinator.ShowReplay();
             coordinator.ShowReferencePreview(swingsAndRelativePos[currentSwingIndex].name);
             timer.Pause();
@@ -250,6 +251,7 @@ public class Gamemode : MonoBehaviour
     {
         GameSettings.duration = Time.time - startTime;
         GameSettings.score = playerScore / nbSwings;
+        Debug.Log("Score de fin de partie :" + GameSettings.score);
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
     }
 }
