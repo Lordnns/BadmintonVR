@@ -100,6 +100,8 @@ public class Gamemode : MonoBehaviour
 
         coordinator.HidePlayerReplay();
         coordinator.HideReferencePreview();
+        ui?.Hide();
+        timer.gameObject.SetActive(true);
         SetLauncherPosition(Random.Range(-1f, 1f));
     }
 
@@ -193,7 +195,12 @@ public class Gamemode : MonoBehaviour
     
             // Combined score for this attempt
             roundScore = (precisionScore + poseScore) / 2.0f;
-            playerScore += roundScore;
+
+            if (roundScore > scoreThreshold)
+            {
+                scores.Enqueue(roundScore);
+                playerScore += roundScore;
+            }
             nbSwings++;
             
             coordinator.ShowReplay();
@@ -204,7 +211,7 @@ public class Gamemode : MonoBehaviour
             ui?.SetTotalScore(roundScore);
             ui?.SetTimeLeft(timer.timeLeft);
             ui?.SetShotsValidated(GetValidatedShots());
-            ui?.SetReferenceImage(roundScore >= 1);
+            ui?.SetReferenceImage(roundScore >= scoreThreshold);
             timer.gameObject.SetActive(false);
             ui?.Show();
 
@@ -215,15 +222,16 @@ public class Gamemode : MonoBehaviour
     void ProcessScore()
     {
         // Push into circular buffer — keep last 3 only
-        scores.Enqueue(roundScore);
-        if (scores.Count > 3) scores.Dequeue();
-
-        if (CheckLastThreeScores())
+        if (roundScore < scoreThreshold)
+        {
+            continueNextSwingAction.action.performed += StartTrial;
+            return;
+        }
+        if (scores.Count == 3)
         {
             OnSkipRound(default);
             return;
         }
-
         continueNextSwingAction.action.performed += StartTrial;
     }
 
@@ -231,38 +239,10 @@ public class Gamemode : MonoBehaviour
     {
         OnSkipRound(default);
     }
-
-    // Check if last three scores are above threshold
-    private bool CheckLastThreeScores()
-    {
-        if (scores.Count < 3)
-        {
-            return false;
-        }
-
-        foreach (var score in scores)
-        {
-            if (score < scoreThreshold)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-
+    
     private int GetValidatedShots()
     {
-        int count = 0;
-        foreach (var score in scores)
-        {
-            if (score > scoreThreshold)
-            {
-                count++;
-            }
-        }
-        return count;
+        return scores.Count;
     }
     
     // COMPLETED CHALLENGE LOGIC

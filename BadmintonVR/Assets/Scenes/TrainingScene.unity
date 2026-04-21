@@ -22105,7 +22105,7 @@ PrefabInstance:
       objectReference: {fileID: 1050954511984149267, guid: c348712bda248c246b8c49b3db54643f, type: 3}
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: scoreThreshold
-      value: 10
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 1680765888675435342, guid: 2e82df394a23b354eb1562055ffba9a2, type: 3}
       propertyPath: skipRoundAction
